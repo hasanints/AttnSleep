@@ -21,7 +21,7 @@ def load_folds_data_shhs(np_data_path, n_folds):
         folds_data[fold_id] = [training_files, subject_files]
     return folds_data
 
-def load_folds_data(np_data_path, n_folds):
+ddef load_folds_data(np_data_path, n_folds):
     files = sorted(glob(os.path.join(np_data_path, "*.npz")))
     print("Total files found:", len(files))  # Debug print
 
@@ -38,7 +38,6 @@ def load_folds_data(np_data_path, n_folds):
 
     if len(r_permute) > len(files):
         raise ValueError("Permutation index exceeds the number of available files.")
-
 
     files_dict = {}
     for i in files:
