@@ -23,6 +23,8 @@ def load_folds_data_shhs(np_data_path, n_folds):
 
 def load_folds_data(np_data_path, n_folds):
     files = sorted(glob(os.path.join(np_data_path, "*.npz")))
+    print("Checking directory:", np_data_path)  # Debug print
+    print("Files found:", files)  # Debug print
     if not files:
         raise ValueError("No .npz files found in the specified directory.")
 
