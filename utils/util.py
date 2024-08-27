@@ -23,36 +23,35 @@ def load_folds_data_shhs(np_data_path, n_folds):
 
 def load_folds_data(np_data_path, n_folds):
     files = sorted(glob(os.path.join(np_data_path, "*.npz")))
+    print("Total files found:", len(files))
+
     if "78" in np_data_path:
         r_p_path = r"utils/r_permute_78.npy"
     else:
         r_p_path = r"utils/r_permute_20.npy"
 
-    if os.path.exists(r_p_path):
-        r_permute = np.load(r_p_path)
+    if not os.path.exists(r_p_path) or np.load(r_p_path).size > len(files):
+        print("Permutation file mismatch detected or does not exist, regenerating permutation indices.")
+        permutation_indices = np.random.permutation(len(files))
+        np.save(r_p_path, permutation_indices)
+        r_permute = permutation_indices
     else:
-        print ("============== ERROR =================")
+        r_permute = np.load(r_p_path)
 
+    if len(r_permute) > len(files):
+        raise ValueError("Permutation index still exceeds the number of available files after regeneration.")
 
-    files_dict = dict()
+    files_dict = {os.path.split(i)[-1][:5]: [] for i in files}
     for i in files:
-        file_name = os.path.split(i)[-1] 
-        file_num = file_name[3:5]
-        if file_num not in files_dict:
-            files_dict[file_num] = [i]
-        else:
-            files_dict[file_num].append(i)
-    files_pairs = []
-    for key in files_dict:
-        files_pairs.append(files_dict[key])
-    files_pairs = np.array(files_pairs)
-    files_pairs = files_pairs[r_permute]
+        files_dict[os.path.split(i)[-1][:5]].append(i)
+
+    files_pairs = [files_dict[key] for key in sorted(files_dict)]
+    files_pairs = np.array(files_pairs)[r_permute]
 
     train_files = np.array_split(files_pairs, n_folds)
     folds_data = {}
     for fold_id in range(n_folds):
-        subject_files = train_files[fold_id]
-        subject_files = [item for sublist in subject_files for item in sublist]
+        subject_files = [item for sublist in train_files[fold_id] for item in sublist]
         files_pairs2 = [item for sublist in files_pairs for item in sublist]
         training_files = list(set(files_pairs2) - set(subject_files))
         folds_data[fold_id] = [training_files, subject_files]
