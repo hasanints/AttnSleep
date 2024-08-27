@@ -22,40 +22,43 @@ def load_folds_data_shhs(np_data_path, n_folds):
     return folds_data
 
 def load_folds_data(np_data_path, n_folds):
+    # Gather all .npz files in the specified directory
     files = sorted(glob(os.path.join(np_data_path, "*.npz")))
-    if "78" in np_data_path:
-        r_p_path = r"utils/r_permute_78.npy"
-    else:
-        r_p_path = r"utils/r_permute_20.npy"
+    print(f"Total files found in {np_data_path}: {len(files)}")  # Debug statement
 
+    # Select the appropriate permutation file based on the directory name
+    if "78" in np_data_path:
+        r_p_path = "utils/r_permute_78.npy"
+    else:
+        r_p_path = "utils/r_permute_20.npy"
+
+    # Load or regenerate the permutation indices
     if os.path.exists(r_p_path):
         r_permute = np.load(r_p_path)
+        print(f"Loaded permutation indices from {r_p_path}: {len(r_permute)}")
     else:
-        print ("============== ERROR =================")
+        print("Permutation file not found, regenerating...")
+        r_permute = np.random.permutation(len(files))
+        np.save(r_p_path, r_permute)
 
+    # Check if the permutation array is larger than the number of files
+    if len(r_permute) > len(files):
+        print("Permutation index exceeds number of files, resizing...")
+        r_permute = np.random.permutation(len(files))  # Regenerate permutation indices
+        np.save(r_p_path, r_permute)  # Save the new permutation indices
 
-    files_dict = dict()
-    for i in files:
-        file_name = os.path.split(i)[-1] 
-        file_num = file_name[3:5]
-        if file_num not in files_dict:
-            files_dict[file_num] = [i]
-        else:
-            files_dict[file_num].append(i)
-    files_pairs = []
-    for key in files_dict:
-        files_pairs.append(files_dict[key])
-    files_pairs = np.array(files_pairs)
-    files_pairs = files_pairs[r_permute]
+    # Organize files into pairs according to permutation
+    files_pairs = np.array(files)[r_permute]  # Apply permutation
+    train_files = np.array_split(files_pairs, n_folds)  # Split files into folds
 
-    train_files = np.array_split(files_pairs, n_folds)
+    # Prepare the fold data structure
     folds_data = {}
-    for fold_id in range(n_folds):
-        subject_files = train_files[fold_id]
-        subject_files = [item for sublist in subject_files for item in sublist]
-        files_pairs2 = [item for sublist in files_pairs for item in sublist]
-        training_files = list(set(files_pairs2) - set(subject_files))
+    for fold_id, fold_files in enumerate(train_files):
+        subject_files = fold_files
+        training_files = list(set(files) - set(subject_files))
         folds_data[fold_id] = [training_files, subject_files]
+        print(f"Fold {fold_id}: {len(subject_files)} subjects, {len(training_files)} training files")
+
     return folds_data
 
 
