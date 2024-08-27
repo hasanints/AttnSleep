@@ -23,10 +23,7 @@ def load_folds_data_shhs(np_data_path, n_folds):
 
 def load_folds_data(np_data_path, n_folds):
     files = sorted(glob(os.path.join(np_data_path, "*.npz")))
-    print("Checking directory:", np_data_path)  # Debug print
-    print("Files found:", files)  # Debug print
-    if not files:
-        raise ValueError("No .npz files found in the specified directory.")
+    print("Total files found:", len(files))  # Debug print
 
     if "78" in np_data_path:
         r_p_path = r"utils/r_permute_78.npy"
@@ -37,8 +34,11 @@ def load_folds_data(np_data_path, n_folds):
         raise FileNotFoundError(f"Permutation file not found: {r_p_path}")
 
     r_permute = np.load(r_p_path)
+    print("Permutation indices:", r_permute)  # Debug print
+
     if len(r_permute) > len(files):
         raise ValueError("Permutation index exceeds the number of available files.")
+
 
     files_dict = {}
     for i in files:
