@@ -1,4 +1,4 @@
-gpu=$1
+gpu=$0
 data=$2
 
 start=0
