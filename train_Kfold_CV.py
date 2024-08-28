@@ -62,7 +62,7 @@ def main(config, fold_id):
                       class_weights=weights_for_each_class)
 
     trainer.train()
-
+    plot_metrics(trainer)
 
 if __name__ == '__main__':
     args = argparse.ArgumentParser(description='PyTorch Template')
