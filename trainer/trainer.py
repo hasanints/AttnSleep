@@ -76,7 +76,7 @@ class Trainer(BaseTrainer):
         self.train_f1.append(log['f1']) 
 
         if self.do_validation:
-            al_log, outs, trgs = self._valid_epoch(epoch)
+            val_log, outs, trgs = self._valid_epoch(epoch)
             self.valid_loss.append(val_log['loss'])
             self.valid_f1.append(val_log['f1'])
             log.update(**{'val_' + k: v for k, v in val_log.items()})
