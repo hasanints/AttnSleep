@@ -73,7 +73,7 @@ class Trainer(BaseTrainer):
                 break
         log = self.train_metrics.result()
         self.train_loss.append(log['loss'])
-        self.train_f1.append(log['f1_score'])  # Assuming f1_score is calculated and returned in log
+        self.train_f1.append(log['f1']) 
 
         if self.do_validation:
             al_log, outs, trgs = self._valid_epoch(epoch)
