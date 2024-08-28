@@ -28,8 +28,8 @@ class Trainer(BaseTrainer):
         self.lr_scheduler = optimizer
         self.log_step = int(data_loader.batch_size) * 1  # reduce this if you want more logs
 
-        self.train_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns])
-        self.valid_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns])
+        self.train_metrics = MetricTracker('loss', 'f1', *[m.__name__ for m in self.metric_ftns])
+        self.valid_metrics = MetricTracker('loss', 'f1', *[m.__name__ for m in self.metric_ftns])
 
         self.fold_id = fold_id
         self.selected = 0
