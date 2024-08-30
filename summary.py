@@ -144,7 +144,7 @@ def perf_overall(data_dir):
 
     total = np.sum(cm, axis=1)
 
-    print "Ours:"
+    print ("Ours:")
     print_performance(cm,y_true,y_pred)
 
 

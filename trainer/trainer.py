@@ -3,7 +3,6 @@ import torch
 from base import BaseTrainer
 from utils import inf_loop, MetricTracker
 import torch.nn as nn
-import matplotlib.pyplot as plt
 
 selected_d = {"outs": [], "trg": []}
 class Trainer(BaseTrainer):
@@ -13,12 +12,6 @@ class Trainer(BaseTrainer):
     def __init__(self, model, criterion, metric_ftns, optimizer, config, data_loader, fold_id,
                  valid_data_loader=None, class_weights=None):
         super().__init__(model, criterion, metric_ftns, optimizer, config, fold_id)
-        # Initialize lists to store metrics
-        self.train_loss = []
-        self.valid_loss = []
-        self.train_f1 = []
-        self.valid_f1 = []
-        
         self.config = config
         self.data_loader = data_loader
         self.len_epoch = len(self.data_loader)
@@ -28,8 +21,8 @@ class Trainer(BaseTrainer):
         self.lr_scheduler = optimizer
         self.log_step = int(data_loader.batch_size) * 1  # reduce this if you want more logs
 
-        self.train_metrics = MetricTracker('loss', 'f1', *[m.__name__ for m in self.metric_ftns])
-        self.valid_metrics = MetricTracker('loss', 'f1', *[m.__name__ for m in self.metric_ftns])
+        self.train_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns])
+        self.valid_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns])
 
         self.fold_id = fold_id
         self.selected = 0
@@ -72,13 +65,9 @@ class Trainer(BaseTrainer):
             if batch_idx == self.len_epoch:
                 break
         log = self.train_metrics.result()
-        self.train_loss.append(log['loss'])
-        self.train_f1.append(log['f1']) 
 
         if self.do_validation:
             val_log, outs, trgs = self._valid_epoch(epoch)
-            self.valid_loss.append(val_log['loss'])
-            self.valid_f1.append(val_log['f1'])
             log.update(**{'val_' + k: v for k, v in val_log.items()})
             if val_log["accuracy"] > self.selected:
                 self.selected = val_log["accuracy"]
@@ -133,29 +122,3 @@ class Trainer(BaseTrainer):
             current = batch_idx
             total = self.len_epoch
         return base.format(current, total, 100.0 * current / total)
-
-    def plot_metrics(trainer):
-        epochs = range(1, len(trainer.train_loss) + 1)
-        plt.figure(figsize=(12, 8))
-
-        plt.subplot(2, 1, 1)
-        plt.plot(epochs, trainer.train_loss, 'bo-', label='Training Loss')
-        plt.plot(epochs, trainer.valid_loss, 'ro-', label='Validation Loss')
-        plt.title('Training and Validation Loss')
-        plt.xlabel('Epochs')
-        plt.ylabel('Loss')
-        plt.legend()
-
-        plt.subplot(2, 1, 2)
-        plt.plot(epochs, trainer.train_f1, 'bo-', label='Training F1 Score')
-        plt.plot(epochs, trainer.valid_f1, 'ro-', label='Validation F1 Score')
-        plt.title('Training and Validation F1 Score')
-        plt.xlabel('Epochs')
-        plt.ylabel('F1 Score')
-        plt.legend()
-
-        plt.tight_layout()
-        plt.show()
-
-
-
