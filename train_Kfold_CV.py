@@ -9,6 +9,8 @@ import model.model as module_arch
 from parse_config import ConfigParser
 from trainer import Trainer
 from utils.util import *
+from visualize import plot_attention, visualize
+from summary import perf_overall
 
 import torch
 import torch.nn as nn
@@ -20,7 +22,6 @@ torch.backends.cudnn.deterministic = False
 torch.backends.cudnn.benchmark = False
 np.random.seed(SEED)
 
-
 def weights_init_normal(m):
     if type(m) == nn.Conv2d:
         torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
@@ -29,7 +30,6 @@ def weights_init_normal(m):
     elif type(m) == nn.BatchNorm1d:
         torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
         torch.nn.init.constant_(m.bias.data, 0.0)
-
 
 def main(config, fold_id):
     batch_size = config["data_loader"]["args"]["batch_size"]
@@ -47,7 +47,6 @@ def main(config, fold_id):
 
     # build optimizer
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
-
     optimizer = config.init_obj('optimizer', torch.optim, trainable_params)
 
     data_loader, valid_data_loader, data_count = data_generator_np(folds_data[fold_id][0],
@@ -61,8 +60,18 @@ def main(config, fold_id):
                       valid_data_loader=valid_data_loader,
                       class_weights=weights_for_each_class)
 
+    # Training and Evaluation
     trainer.train()
-    plot_metrics(trainer)
+    
+    # Visualization and Summary
+    if config.visualize:
+        # Assuming the model has a method to return attention maps
+        attention_maps = model.get_attention_maps() if hasattr(model, 'get_attention_maps') else None
+        plot_attention(attention_maps)
+        visualize(config.save_dir)
+    
+    if config.summary:
+        perf_overall(config.save_dir)
 
 if __name__ == '__main__':
     args = argparse.ArgumentParser(description='PyTorch Template')
@@ -76,7 +85,6 @@ if __name__ == '__main__':
                       help='fold_id')
     args.add_argument('-da', '--np_data_dir', type=str,
                       help='Directory containing numpy files')
-
 
     CustomArgs = collections.namedtuple('CustomArgs', 'flags type target')
     options = []

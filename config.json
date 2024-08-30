@@ -1,6 +1,8 @@
 {
     "name": "Exp1",
     "n_gpu": 1,
+    "visualize": true,
+    "summary": true,
     "arch": {
         "type": "AttnSleep",
         "args": {}
@@ -31,4 +33,8 @@
         "verbosity": 2,
         "monitor": "min val_loss"
     }
+
+
+
+      
 }
