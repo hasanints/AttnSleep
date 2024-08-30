@@ -47,12 +47,11 @@ class ConfigParser:
         self.log_levels = {
             0: logging.WARNING,
             1: logging.INFO,
-            2: logging.DEBUG,
-
-        self.visualize = config.get('visualize', False)
-        self.summary = config.get('summary', False)
+            2: logging.DEBUG
 
         }
+        self.visualize = config.get('visualize', False)
+        self.summary = config.get('summary', False)
 
     @classmethod
     def from_args(cls, args, fold_id, options=''):
