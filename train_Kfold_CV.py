@@ -9,8 +9,7 @@ import model.model as module_arch
 from parse_config import ConfigParser
 from trainer import Trainer
 from utils.util import *
-from visualize import plot_attention, visualize
-from summary import perf_overall
+from summary import perf_overall  # Menghapus impor plot_attention dan visualize
 
 import torch
 import torch.nn as nn
@@ -60,22 +59,7 @@ def main(config, fold_id):
     # Training and Evaluation
     trainer.train()
     
-    # Initialize attention_maps as None before using it
-    attention_maps = None
-    
-    # Visualization and Summary
-    if config.visualize:
-        # Check if model has the method to get attention maps
-        if hasattr(model, 'get_attention_maps'):
-            attention_maps = model.get_attention_maps()
-            if attention_maps is not None:
-                plot_attention(attention_maps)
-                visualize(config.save_dir)
-            else:
-                print("Error: attention_maps is None. Skipping plot_attention. Ensure model's attention mechanism is working and produces valid output.")
-        else:
-            print("Error: Model does not have a method to generate attention maps.")
-    
+    # Visualization and Summary (Menghapus bagian terkait dengan attention maps)
     # Summary
     if config.summary:
         perf_overall(config.save_dir)

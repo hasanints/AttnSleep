@@ -26,30 +26,6 @@ class SELayer(nn.Module):
         y = self.fc(y).view(b, c, 1)
         return x * y.expand_as(x)
 
-class MyModel(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim):
-        super(MyModel, self).__init__()
-        # Define layers including attention layer
-        self.conv1 = nn.Conv1d(input_dim, hidden_dim, kernel_size=3, padding=1)
-        self.bn1 = nn.BatchNorm1d(hidden_dim)
-        self.relu = nn.ReLU(inplace=True)
-        self.attention_layer = SELayer(hidden_dim)
-        self.fc = nn.Linear(hidden_dim, output_dim)
-
-    def forward(self, x):
-        x = self.conv1(x)
-        x = self.bn1(x)
-        x = self.relu(x)
-        attention_output = self.attention_layer(x)
-        x = torch.mean(attention_output, dim=-1)  # Example of pooling over the attention layer
-        output = self.fc(x)
-        return output
-
-    def get_attention_maps(self):
-        # Example of getting attention maps (modify based on actual model)
-        # For simplicity, we'll return random values simulating attention maps
-        attention_maps = torch.randn(1, 10, 10)  # Example attention map shape
-        return attention_maps
 
 class SEBasicBlock(nn.Module):
     expansion = 1
