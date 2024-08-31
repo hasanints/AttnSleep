@@ -3,6 +3,7 @@ import torch
 from base import BaseTrainer
 from utils import inf_loop, MetricTracker
 import torch.nn as nn
+import time
 
 selected_d = {"outs": [], "trg": []}
 class Trainer(BaseTrainer):
@@ -36,6 +37,8 @@ class Trainer(BaseTrainer):
                total_epochs: Integer, the total number of epoch
         :return: A log that contains average loss and metric in this epoch.
         """
+        start_time = time.time()  # Start time tracking
+
         self.model.train()
         self.train_metrics.reset()
         overall_outs = []
@@ -82,6 +85,9 @@ class Trainer(BaseTrainer):
                 for g in self.lr_scheduler.param_groups:
                     g['lr'] = 0.0001
 
+        elapsed_time = time.time() - start_time  # Calculate elapsed time
+        print(f"Training time for epoch {epoch}: {elapsed_time:.2f} seconds")
+
         return log, overall_outs, overall_trgs
 
     def _valid_epoch(self, epoch):
@@ -91,6 +97,8 @@ class Trainer(BaseTrainer):
         :param epoch: Integer, current training epoch.
         :return: A log that contains information about validation
         """
+        start_time = time.time()  # Start time tracking
+
         self.model.eval()
         self.valid_metrics.reset()
         with torch.no_grad():
@@ -109,7 +117,9 @@ class Trainer(BaseTrainer):
 
                 outs = np.append(outs, preds_.cpu().numpy())
                 trgs = np.append(trgs, target.data.cpu().numpy())
-
+        
+        elapsed_time = time.time() - start_time  # Calculate elapsed time
+        print(f"Validation time for epoch {epoch}: {elapsed_time:.2f} seconds")
 
         return self.valid_metrics.result(), outs, trgs
 
