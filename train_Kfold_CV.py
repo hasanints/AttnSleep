@@ -23,36 +23,31 @@ torch.backends.cudnn.benchmark = False
 np.random.seed(SEED)
 
 def weights_init_normal(m):
-    if type(m) == nn.Conv2d:
+    if isinstance(m, (nn.Conv2d, nn.Conv1d)):
         torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
-    elif type(m) == nn.Conv1d:
-        torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
-    elif type(m) == nn.BatchNorm1d:
+    elif isinstance(m, nn.BatchNorm1d):
         torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
         torch.nn.init.constant_(m.bias.data, 0.0)
 
-
-
 def main(config, fold_id):
     batch_size = config["data_loader"]["args"]["batch_size"]
-
     logger = config.get_logger('train')
 
-    # build model architecture, initialize weights, then print to console
+    # Build model architecture, initialize weights, then print to console
     model = config.init_obj('arch', module_arch)
     model.apply(weights_init_normal)
     logger.info(model)
 
-    # get function handles of loss and metrics
+    # Get function handles of loss and metrics
     criterion = getattr(module_loss, config['loss'])
     metrics = [getattr(module_metric, met) for met in config['metrics']]
 
-    # build optimizer
+    # Build optimizer
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
     optimizer = config.init_obj('optimizer', torch.optim, trainable_params)
 
-    data_loader, valid_data_loader, data_count = data_generator_np(folds_data[fold_id][0],
-                                                                   folds_data[fold_id][1], batch_size)
+    data_loader, valid_data_loader, data_count = data_generator_np(
+        folds_data[fold_id][0], folds_data[fold_id][1], batch_size)
     weights_for_each_class = calc_class_weight(data_count)
 
     trainer = Trainer(model, criterion, metrics, optimizer,
@@ -65,6 +60,9 @@ def main(config, fold_id):
     # Training and Evaluation
     trainer.train()
     
+    # Initialize attention_maps as None before using it
+    attention_maps = None
+    
     # Visualization and Summary
     if config.visualize:
         # Only attempt to get attention maps if visualization is enabled
@@ -74,12 +72,11 @@ def main(config, fold_id):
             plot_attention(attention_maps)
             visualize(config.save_dir)
         else:
-            print("Error: attention_maps is None. Skipping plot_attention.")
-    
+            print("Error: attention_maps is None. Skipping plot_attention. Ensure model's attention mechanism is working.")
+
     # Summary
     if config.summary:
         perf_overall(config.save_dir)
-
 
 if __name__ == '__main__':
     args = argparse.ArgumentParser(description='PyTorch Template')
