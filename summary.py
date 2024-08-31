@@ -81,22 +81,37 @@ def print_performance(cm, y_true=[], y_pred=[]):
 def perf_overall(data_dir):
     # Remove non-output files, and perform ascending sort
     allfiles = os.listdir(data_dir)
-    outputfiles = [os.path.join(data_dir, f) for f in allfiles if re.match("^output_.+\d+\.npz", f)]
+    outputfiles = [os.path.join(data_dir, f) for f in allfiles if re.match("^output_.+\\d+\\.npz", f)]
     outputfiles.sort()
 
     y_true, y_pred = [], []
     for fpath in outputfiles:
         with np.load(fpath) as f:
-            print(f["y_true"].shape)
-            f_y_true = f["y_true"].flatten() if len(f["y_true"].shape) > 1 else np.hstack(f["y_true"])
-            f_y_pred = f["y_pred"].flatten() if len(f["y_pred"].shape) > 1 else np.hstack(f["y_pred"])
-            
-            y_true.extend(f_y_true)
-            y_pred.extend(f_y_pred)
+            print(f"Processing file: {fpath}")
+            print(f"Shapes - y_true: {f['y_true'].shape}, y_pred: {f['y_pred'].shape}")
 
-            print("File: {}".format(fpath))
-            cm = confusion_matrix(f_y_true, f_y_pred, labels=[0, 1, 2, 3, 4])
-            print_performance(cm)
+            # Pastikan array tidak kosong sebelum melanjutkan
+            if f["y_true"].size > 0 and f["y_pred"].size > 0:
+                f_y_true = f["y_true"].flatten() if len(f["y_true"].shape) > 1 else np.hstack(f["y_true"])
+                f_y_pred = f["y_pred"].flatten() if len(f["y_pred"].shape) > 1 else np.hstack(f["y_pred"])
+                
+                # Cek apakah prediksi dan label tidak kosong
+                if len(f_y_true) == 0 or len(f_y_pred) == 0:
+                    print(f"Warning: Skipping file {fpath} due to empty y_true or y_pred.")
+                    continue
+                
+                y_true.extend(f_y_true)
+                y_pred.extend(f_y_pred)
+
+                print("File: {}".format(fpath))
+                cm = confusion_matrix(f_y_true, f_y_pred, labels=[0, 1, 2, 3, 4])
+                print_performance(cm)
+            else:
+                print(f"Warning: Skipping file {fpath} due to empty y_true or y_pred.")
+
+    if len(y_true) == 0 or len(y_pred) == 0:
+        print("Error: No valid predictions or ground truth data found. Exiting performance calculation.")
+        return
 
     print(" ")
     y_true = np.asarray(y_true)
@@ -105,6 +120,7 @@ def perf_overall(data_dir):
     cm = confusion_matrix(y_true, y_pred, labels=range(n_classes))
     print("Ours:")
     print_performance(cm, y_true, y_pred)
+
 
 def main():
     parser = argparse.ArgumentParser()
