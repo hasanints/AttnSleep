@@ -65,15 +65,17 @@ def main(config, fold_id):
     
     # Visualization and Summary
     if config.visualize:
-        # Only attempt to get attention maps if visualization is enabled
-        attention_maps = model.get_attention_maps() if hasattr(model, 'get_attention_maps') else None
-        
-        if attention_maps is not None:
-            plot_attention(attention_maps)
-            visualize(config.save_dir)
+        # Check if model has the method to get attention maps
+        if hasattr(model, 'get_attention_maps'):
+            attention_maps = model.get_attention_maps()
+            if attention_maps is not None:
+                plot_attention(attention_maps)
+                visualize(config.save_dir)
+            else:
+                print("Error: attention_maps is None. Skipping plot_attention. Ensure model's attention mechanism is working and produces valid output.")
         else:
-            print("Error: attention_maps is None. Skipping plot_attention. Ensure model's attention mechanism is working.")
-
+            print("Error: Model does not have a method to generate attention maps.")
+    
     # Summary
     if config.summary:
         perf_overall(config.save_dir)

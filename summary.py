@@ -90,12 +90,12 @@ def perf_overall(data_dir):
             print(f"Processing file: {fpath}")
             print(f"Shapes - y_true: {f['y_true'].shape}, y_pred: {f['y_pred'].shape}")
 
-            # Pastikan array tidak kosong sebelum melanjutkan
+            # Ensure the arrays are not empty before proceeding
             if f["y_true"].size > 0 and f["y_pred"].size > 0:
                 f_y_true = f["y_true"].flatten() if len(f["y_true"].shape) > 1 else np.hstack(f["y_true"])
                 f_y_pred = f["y_pred"].flatten() if len(f["y_pred"].shape) > 1 else np.hstack(f["y_pred"])
 
-                # Validasi data prediksi dan label
+                # Validate prediction and label data
                 if len(f_y_true) == 0 or len(f_y_pred) == 0:
                     print(f"Warning: Skipping file {fpath} due to empty y_true or y_pred.")
                     continue
@@ -109,7 +109,7 @@ def perf_overall(data_dir):
             else:
                 print(f"Warning: Skipping file {fpath} due to empty y_true or y_pred.")
 
-    # Cek apakah ada data valid setelah diproses
+    # Check if there is valid data after processing
     if len(y_true) == 0 or len(y_pred) == 0:
         print("Error: No valid predictions or ground truth data found. Exiting performance calculation.")
         return
