@@ -66,18 +66,12 @@ def main(config, fold_id):
     trainer.train()
     
     # Visualization and Summary
-    if config.visualize:
-        # Assuming the model has a method to return attention maps
-        attention_maps = model.get_attention_maps() if hasattr(model, 'get_attention_maps') else None
+    
+    if config.visualize and attention_maps is not None:
         plot_attention(attention_maps)
         visualize(config.save_dir)
-
-    if attention_maps is not None:
-        plot_attention(attention_maps)
-    else:
+    elif config.visualize:
         print("Error: attention_maps is None. Skipping plot_attention.")
-    
-    print(f"Attention maps: {attention_maps}")
     
     if config.summary:
         perf_overall(config.save_dir)
