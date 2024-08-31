@@ -61,7 +61,7 @@ def main(config, fold_id):
                       fold_id=fold_id,
                       valid_data_loader=valid_data_loader,
                       class_weights=weights_for_each_class)
-
+    
     # Training and Evaluation
     trainer.train()
     
@@ -71,9 +71,17 @@ def main(config, fold_id):
         attention_maps = model.get_attention_maps() if hasattr(model, 'get_attention_maps') else None
         plot_attention(attention_maps)
         visualize(config.save_dir)
+
+    if attention_maps is not None:
+        plot_attention(attention_maps)
+    else:
+        print("Error: attention_maps is None. Skipping plot_attention.")
+    
+    print(f"Attention maps: {attention_maps}")
     
     if config.summary:
         perf_overall(config.save_dir)
+
 
 if __name__ == '__main__':
     args = argparse.ArgumentParser(description='PyTorch Template')
