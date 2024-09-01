@@ -2,7 +2,7 @@ gpu=$1
 data=$2
 
 start=0
-end=$(jq '.data_loader.args.num_folds' < config.json)
+end=`cat config.json | jq '.data_loader.args.num_folds'`
 end=$((end-1))
 
 for i in $(eval echo {$start..$end})
