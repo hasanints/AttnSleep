@@ -90,10 +90,9 @@ def main():
         # Ensure data is high-pass filtered before ICA
         raw.filter(1.0, None)  # High-pass filter to 1.0 Hz
 
-        # Skip applying average reference for single-channel data
-
         # Step 2: Apply Independent Component Analysis (ICA) for artifact removal
-        ica = ICA(n_components=1, random_state=97)  # Use a lower n_components since we have only one channel
+        # Adjust n_components for single-channel data
+        ica = ICA(n_components=0.99, random_state=97)  # Use n_components=0.99 to explain 99% variance
         ica.fit(raw)
 
         # No EOG channel is present, so we skip EOG artifact detection
