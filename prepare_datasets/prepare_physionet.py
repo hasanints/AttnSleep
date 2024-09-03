@@ -1,25 +1,15 @@
-'''
-https://github.com/akaraspt/deepsleepnet
-Copyright 2017 Akara Supratak and Hao Dong.  All rights reserved.
-'''
-
 import argparse
 import glob
 import math
 import ntpath
 import os
 import shutil
-
-
 from datetime import datetime
 
 import numpy as np
 import pandas as pd
-
 from mne.io import concatenate_raws, read_raw_edf
-
 import dhedfreader
-
 
 # Label values
 W = 0
@@ -60,7 +50,6 @@ ann2label = {
 
 EPOCH_SEC_SIZE = 30
 
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir", type=str, default="data_edf_20",
@@ -92,7 +81,7 @@ def main():
     for i in range(len(psg_fnames)):
         raw = read_raw_edf(psg_fnames[i], preload=True, stim_channel=None)
         sampling_rate = raw.info['sfreq']
-        raw_ch_df = raw.to_data_frame(scaling_time=100.0)[select_ch]
+        raw_ch_df = raw.to_data_frame()[select_ch]  # Removed scaling_time argument
         raw_ch_df = raw_ch_df.to_frame()
         raw_ch_df.set_index(np.arange(len(raw_ch_df)))
 
@@ -117,8 +106,8 @@ def main():
         assert raw_start_dt == ann_start_dt
 
         # Generate label and remove indices
-        remove_idx = []    # indicies of the data that will be removed
-        labels = []        # indicies of the data that have labels
+        remove_idx = []    # indices of the data that will be removed
+        labels = []        # indices of the data that have labels
         label_idx = []
         for a in ann[0]:
             onset_sec, duration_sec, ann_char = a
@@ -133,30 +122,30 @@ def main():
                 idx = int(onset_sec * sampling_rate) + np.arange(duration_sec * sampling_rate, dtype=int)
                 label_idx.append(idx)
 
-                print ("Include onset:{}, duration:{}, label:{} ({})".format(
+                print("Include onset:{}, duration:{}, label:{} ({})".format(
                     onset_sec, duration_sec, label, ann_str
                 ))
             else:
                 idx = int(onset_sec * sampling_rate) + np.arange(duration_sec * sampling_rate, dtype=int)
                 remove_idx.append(idx)
 
-                print ("Remove onset:{}, duration:{}, label:{} ({})".format(
+                print("Remove onset:{}, duration:{}, label:{} ({})".format(
                     onset_sec, duration_sec, label, ann_str))
         labels = np.hstack(labels)
-        
-        print ("before remove unwanted: {}".format(np.arange(len(raw_ch_df)).shape))
+
+        print("before remove unwanted: {}".format(np.arange(len(raw_ch_df)).shape))
         if len(remove_idx) > 0:
             remove_idx = np.hstack(remove_idx)
             select_idx = np.setdiff1d(np.arange(len(raw_ch_df)), remove_idx)
         else:
             select_idx = np.arange(len(raw_ch_df))
-        print ("after remove unwanted: {}".format(select_idx.shape))
+        print("after remove unwanted: {}".format(select_idx.shape))
 
         # Select only the data with labels
-        print ("before intersect label: {}".format(select_idx.shape))
+        print("before intersect label: {}".format(select_idx.shape))
         label_idx = np.hstack(label_idx)
         select_idx = np.intersect1d(select_idx, label_idx)
-        print ("after intersect label: {}".format(select_idx.shape))
+        print("after intersect label: {}".format(select_idx.shape))
 
         # Remove extra index
         if len(label_idx) > len(select_idx):
@@ -164,11 +153,8 @@ def main():
             extra_idx = np.setdiff1d(label_idx, select_idx)
             # Trim the tail
             if np.all(extra_idx > select_idx[-1]):
-                # n_trims = len(select_idx) % int(EPOCH_SEC_SIZE * sampling_rate)
-                # n_label_trims = int(math.ceil(n_trims / (EPOCH_SEC_SIZE * sampling_rate)))
                 n_label_trims = int(math.ceil(len(extra_idx) / (EPOCH_SEC_SIZE * sampling_rate)))
-                if n_label_trims!=0:
-                    # select_idx = select_idx[:-n_trims]
+                if n_label_trims != 0:
                     labels = labels[:-n_label_trims]
             print("after remove extra labels: {}, {}".format(select_idx.shape, labels.shape))
 
@@ -181,8 +167,8 @@ def main():
         n_epochs = len(raw_ch) / (EPOCH_SEC_SIZE * sampling_rate)
 
         # Get epochs and their corresponding labels
-        x = np.asarray(np.split(raw_ch, n_epochs)).astype(float32)
-        y = labels.astype(int32)
+        x = np.asarray(np.split(raw_ch, n_epochs)).astype(np.float32)
+        y = labels.astype(np.int32)
 
         assert len(x) == len(y)
 
@@ -193,7 +179,7 @@ def main():
         end_idx = nw_idx[-1] + (w_edge_mins * 2)
         if start_idx < 0: start_idx = 0
         if end_idx >= len(y): end_idx = len(y) - 1
-        select_idx = np.arange(start_idx, end_idx+1)
+        select_idx = np.arange(start_idx, end_idx + 1)
         print("Data before selection: {}, {}".format(x.shape, y.shape))
         x = x[select_idx]
         y = y[select_idx]
@@ -202,8 +188,8 @@ def main():
         # Save
         filename = ntpath.basename(psg_fnames[i]).replace("-PSG.edf", ".npz")
         save_dict = {
-            "x": x, 
-            "y": y, 
+            "x": x,
+            "y": y,
             "fs": sampling_rate,
             "ch_label": select_ch,
             "header_raw": h_raw,
@@ -211,8 +197,8 @@ def main():
         }
         np.savez(os.path.join(args.output_dir, filename), **save_dict)
 
-        print ("\n=======================================\n")
-
+        print("\n=======================================\n")
 
 if __name__ == "__main__":
     main()
+
