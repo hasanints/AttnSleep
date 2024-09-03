@@ -93,9 +93,10 @@ def main():
 
         # Step 1: Apply Common Average Reference (CAR)
         raw.set_eeg_reference('average', projection=True)
-        
+        raw.apply_proj()
+
         # Step 2: Apply Independent Component Analysis (ICA) for artifact removal
-        ica = ICA(n_components=7, random_state=97)  # Adjust n_components to 7 or fewer
+        ica = ICA(n_components=0.999999, random_state=97)  # Use a lower n_components value or 0.999999
         ica.fit(raw, picks=picks)
 
         # Check if there are any EOG channels
@@ -165,30 +166,30 @@ def main():
                 idx = int(onset_sec * sampling_rate) + np.arange(duration_sec * sampling_rate, dtype=int)
                 label_idx.append(idx)
 
-                print ("Include onset:{}, duration:{}, label:{} ({})".format(
+                print("Include onset:{}, duration:{}, label:{} ({})".format(
                     onset_sec, duration_sec, label, ann_str
                 ))
             else:
                 idx = int(onset_sec * sampling_rate) + np.arange(duration_sec * sampling_rate, dtype=int)
                 remove_idx.append(idx)
 
-                print ("Remove onset:{}, duration:{}, label:{} ({})".format(
+                print("Remove onset:{}, duration:{}, label:{} ({})".format(
                     onset_sec, duration_sec, label, ann_str))
         labels = np.hstack(labels)
         
-        print ("before remove unwanted: {}".format(np.arange(len(raw_ch_df)).shape))
+        print("before remove unwanted: {}".format(np.arange(len(raw_ch_df)).shape))
         if len(remove_idx) > 0:
             remove_idx = np.hstack(remove_idx)
             select_idx = np.setdiff1d(np.arange(len(raw_ch_df)), remove_idx)
         else:
             select_idx = np.arange(len(raw_ch_df))
-        print ("after remove unwanted: {}".format(select_idx.shape))
+        print("after remove unwanted: {}".format(select_idx.shape))
 
         # Select only the data with labels
-        print ("before intersect label: {}".format(select_idx.shape))
+        print("before intersect label: {}".format(select_idx.shape))
         label_idx = np.hstack(label_idx)
         select_idx = np.intersect1d(select_idx, label_idx)
-        print ("after intersect label: {}".format(select_idx.shape))
+        print("after intersect label: {}".format(select_idx.shape))
 
         # Remove extra index
         if len(label_idx) > len(select_idx):
@@ -197,7 +198,7 @@ def main():
             # Trim the tail
             if np.all(extra_idx > select_idx[-1]):
                 n_label_trims = int(math.ceil(len(extra_idx) / (EPOCH_SEC_SIZE * sampling_rate)))
-                if n_label_trims!=0:
+                if n_label_trims != 0:
                     labels = labels[:-n_label_trims]
             print("after remove extra labels: {}, {}".format(select_idx.shape, labels.shape))
 
@@ -240,7 +241,7 @@ def main():
         }
         np.savez(os.path.join(args.output_dir, filename), **save_dict)
 
-        print ("\n=======================================\n")
+        print("\n=======================================\n")
 
 
 if __name__ == "__main__":
