@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 from mne.io import read_raw_edf
 from mne.preprocessing import ICA
-from mne import pick_channels
 import dhedfreader
 
 # Label values
@@ -91,9 +90,7 @@ def main():
         # Ensure data is high-pass filtered before ICA
         raw.filter(1.0, None)  # High-pass filter to 1.0 Hz
 
-        # Step 1: Apply Common Average Reference (CAR)
-        raw.set_eeg_reference('average', projection=True)
-        raw.apply_proj()
+        # Skip applying average reference for single-channel data
 
         # Step 2: Apply Independent Component Analysis (ICA) for artifact removal
         ica = ICA(n_components=1, random_state=97)  # Use a lower n_components since we have only one channel
