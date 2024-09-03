@@ -55,7 +55,6 @@ ann2label = {
 
 EPOCH_SEC_SIZE = 30
 
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir", type=str, default="data_edf_20",
@@ -89,11 +88,14 @@ def main():
         raw = read_raw_edf(psg_fnames[i], preload=True, stim_channel=None)
         sampling_rate = raw.info['sfreq']
         
+        # Apply high-pass filter before ICA (recommended)
+        raw.filter(1.0, None)
+        
         # Step 1: Apply Common Average Reference (CAR)
         raw.set_eeg_reference('average', projection=True)
         
         # Step 2: Apply Independent Component Analysis (ICA) for artifact removal
-        ica = ICA(n_components=20, random_state=97)
+        ica = ICA(n_components=7, random_state=97)  # Adjusted n_components to 7
         ica.fit(raw)
         eog_indices, eog_scores = ica.find_bads_eog(raw)
         ica.exclude = eog_indices
@@ -117,8 +119,7 @@ def main():
             filtered_data[band] = raw.copy().filter(low_freq, high_freq)
         
         # Process data
-        raw_ch_df = raw.to_data_frame(scaling_time=100.0)[select_ch]
-        raw_ch_df = raw_ch_df.to_frame()
+        raw_ch_df = raw.to_data_frame()[[select_ch]]
         raw_ch_df.set_index(np.arange(len(raw_ch_df)))
 
         # Get raw header
@@ -203,8 +204,8 @@ def main():
         n_epochs = len(raw_ch) / (EPOCH_SEC_SIZE * sampling_rate)
 
         # Get epochs and their corresponding labels
-        x = np.asarray(np.split(raw_ch, n_epochs)).astype(float32)
-        y = labels.astype(int32)
+        x = np.asarray(np.split(raw_ch, n_epochs)).astype(np.float32)
+        y = labels.astype(np.int32)
 
         assert len(x) == len(y)
 
