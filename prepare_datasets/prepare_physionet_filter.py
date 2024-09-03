@@ -8,9 +8,9 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from mne.io import concatenate_raws, read_raw_edf
+from mne.io import read_raw_edf
 from mne.preprocessing import ICA
-from mne import pick_types
+from mne import pick_channels
 import dhedfreader
 
 # Label values
@@ -86,30 +86,26 @@ def main():
         sampling_rate = raw.info['sfreq']
 
         # Select only the desired channel (Fpz-Cz)
-        picks = pick_types(raw.info, eeg=True, include=[select_ch])
+        raw.pick_channels([select_ch])
 
         # Ensure data is high-pass filtered before ICA
-        raw.filter(1.0, None, picks=picks)  # High-pass filter to 1.0 Hz
+        raw.filter(1.0, None)  # High-pass filter to 1.0 Hz
 
         # Step 1: Apply Common Average Reference (CAR)
         raw.set_eeg_reference('average', projection=True)
         raw.apply_proj()
 
         # Step 2: Apply Independent Component Analysis (ICA) for artifact removal
-        ica = ICA(n_components=0.999999, random_state=97)  # Use a lower n_components value or 0.999999
-        ica.fit(raw, picks=picks)
+        ica = ICA(n_components=1, random_state=97)  # Use a lower n_components since we have only one channel
+        ica.fit(raw)
 
-        # Check if there are any EOG channels
-        eog_ch_names = [ch for ch in raw.ch_names if 'EOG' in ch]
-        if eog_ch_names:  # Only find EOG artifacts if EOG channels are present
-            eog_indices, eog_scores = ica.find_bads_eog(raw)
-            ica.exclude = eog_indices
+        # No EOG channel is present, so we skip EOG artifact detection
 
         # Apply the ICA to the data
         raw = ica.apply(raw)
 
         # Step 3: Band-pass filter (0.5–40 Hz) for the selected channel
-        raw.filter(0.5, 40.0, picks=picks)
+        raw.filter(0.5, 40.0)
         
         # Step 4: Filter into six frequency bands
         freq_bands = {
@@ -123,7 +119,7 @@ def main():
 
         filtered_data = {}
         for band, (low_freq, high_freq) in freq_bands.items():
-            filtered_data[band] = raw.copy().filter(low_freq, high_freq, picks=picks)
+            filtered_data[band] = raw.copy().filter(low_freq, high_freq)
         
         # Process data for the selected channel
         raw_ch_df = raw.to_data_frame()[[select_ch]]
@@ -223,7 +219,7 @@ def main():
         end_idx = nw_idx[-1] + (w_edge_mins * 2)
         if start_idx < 0: start_idx = 0
         if end_idx >= len(y): end_idx = len(y) - 1
-        select_idx = np.arange(start_idx, end_idx+1)
+        select_idx = np.arange(start_idx, end_idx + 1)
         print("Data before selection: {}, {}".format(x.shape, y.shape))
         x = x[select_idx]
         y = y[select_idx]
