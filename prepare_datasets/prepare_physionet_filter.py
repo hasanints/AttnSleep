@@ -1,3 +1,9 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from mne.io import read_raw_edf
+from scipy.fft import fft, fftfreq
+from scipy.signal import welch
+from scipy.stats import skew, kurtosis
 import argparse
 import glob
 import math
@@ -5,11 +11,6 @@ import ntpath
 import os
 import shutil
 from datetime import datetime
-
-import numpy as np
-import pandas as pd
-from mne.io import read_raw_edf
-from mne.preprocessing import ICA
 import dhedfreader
 
 # Label values
@@ -51,6 +52,57 @@ ann2label = {
 
 EPOCH_SEC_SIZE = 30
 
+# Fungsi untuk memfilter dan memproses sinyal EEG dari file EDF
+def preprocess_eeg(file_path, channel_name):
+    # Read EDF file using MNE
+    raw = read_raw_edf(file_path, preload=True)
+    sampling_rate = raw.info['sfreq']  # Get the sampling frequency
+    
+    # Select only the desired channel using the new recommended method
+    raw.pick([channel_name])
+
+    # Apply band-pass filter (0.5–40 Hz)
+    raw.filter(0.5, 40.0, fir_design='firwin')
+    
+    # Extract data from the selected channel
+    data = raw.get_data(picks=channel_name)[0]  # Pick specific channel, e.g., "EEG Fpz-Cz"
+    
+    return data, sampling_rate
+
+# Fungsi untuk menyimpan data yang sudah difilter ke dalam format NPZ
+def save_filtered_data(file_path, channel_name, output_dir):
+    # Read EDF file and preprocess it
+    data, sampling_rate = preprocess_eeg(file_path, channel_name)
+    
+    # Save the filtered data into NPZ format
+    filename = ntpath.basename(file_path).replace("-PSG.edf", "-filtered.npz")
+    save_dict = {
+        "data": data,
+        "sampling_rate": sampling_rate,
+        "channel_name": channel_name
+    }
+    np.savez(os.path.join(output_dir, filename), **save_dict)
+    print(f"Filtered data saved to {os.path.join(output_dir, filename)}")
+
+# Fungsi untuk memvisualisasikan sinyal yang telah difilter
+def plot_filtered_signal(data, sampling_rate, title="Filtered EEG Signal", channel_name="EEG Fpz-Cz", duration=5):
+    # Menghitung jumlah sampel untuk durasi yang diinginkan
+    num_samples = int(duration * sampling_rate)
+    
+    # Memotong data sesuai durasi yang diinginkan
+    data = data[:num_samples]
+    
+    # Mengatur waktu untuk plot
+    time = np.arange(0, len(data)) / sampling_rate
+    
+    # Membuat plot
+    plt.figure(figsize=(15, 5))
+    plt.plot(time, data, color='blue')
+    plt.title(f'{title} - {channel_name}')
+    plt.xlabel('Time (seconds)')
+    plt.ylabel('Amplitude (µV)')
+    plt.show()
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir", type=str, default="data_edf_20",
@@ -73,168 +125,19 @@ def main():
 
     # Read raw and annotation EDF files
     psg_fnames = glob.glob(os.path.join(args.data_dir, "*PSG.edf"))
-    ann_fnames = glob.glob(os.path.join(args.data_dir, "*Hypnogram.edf"))
     psg_fnames.sort()
-    ann_fnames.sort()
-    psg_fnames = np.asarray(psg_fnames)
-    ann_fnames = np.asarray(ann_fnames)
 
     for i in range(len(psg_fnames)):
-        # Read raw EEG data
-        raw = read_raw_edf(psg_fnames[i], preload=True, stim_channel=None)
-        sampling_rate = raw.info['sfreq']
+        # Preprocess and filter the data
+        filtered_data, sampling_rate = preprocess_eeg(psg_fnames[i], select_ch)
 
-        # Select only the desired channel (Fpz-Cz)
-        raw.pick_channels([select_ch])
+        # Save the filtered data to NPZ format
+        save_filtered_data(psg_fnames[i], select_ch, args.output_dir)
 
-        # Ensure data is high-pass filtered before ICA
-        raw.filter(1.0, None)  # High-pass filter to 1.0 Hz
-
-        # Step 2: Apply Independent Component Analysis (ICA) for artifact removal
-        # Adjust n_components for single-channel data
-        ica = ICA(n_components=0.99, random_state=97)  # Use n_components=0.99 to explain 99% variance
-        ica.fit(raw)
-
-        # No EOG channel is present, so we skip EOG artifact detection
-
-        # Apply the ICA to the data
-        raw = ica.apply(raw)
-
-        # Step 3: Band-pass filter (0.5–40 Hz) for the selected channel
-        raw.filter(0.5, 40.0)
-        
-        # Step 4: Filter into six frequency bands
-        freq_bands = {
-            'delta': (0.5, 4),
-            'theta': (4, 8),
-            'alpha': (8, 13),
-            'beta1': (13, 22),
-            'beta2': (22, 30),
-            'gamma': (30, 40)
-        }
-
-        filtered_data = {}
-        for band, (low_freq, high_freq) in freq_bands.items():
-            filtered_data[band] = raw.copy().filter(low_freq, high_freq)
-        
-        # Process data for the selected channel
-        raw_ch_df = raw.to_data_frame()[[select_ch]]
-        raw_ch_df.set_index(np.arange(len(raw_ch_df)))
-
-        # Get raw header
-        f = open(psg_fnames[i], 'r', errors='ignore')
-        reader_raw = dhedfreader.BaseEDFReader(f)
-        reader_raw.read_header()
-        h_raw = reader_raw.header
-        f.close()
-        raw_start_dt = datetime.strptime(h_raw['date_time'], "%Y-%m-%d %H:%M:%S")
-
-        # Read annotation and its header
-        f = open(ann_fnames[i], 'r', errors='ignore')
-        reader_ann = dhedfreader.BaseEDFReader(f)
-        reader_ann.read_header()
-        h_ann = reader_ann.header
-        _, _, ann = zip(*reader_ann.records())
-        f.close()
-        ann_start_dt = datetime.strptime(h_ann['date_time'], "%Y-%m-%d %H:%M:%S")
-
-        # Assert that raw and annotation files start at the same time
-        assert raw_start_dt == ann_start_dt
-
-        # Generate label and remove indices
-        remove_idx = []    # indices of the data that will be removed
-        labels = []        # indices of the data that have labels
-        label_idx = []
-        for a in ann[0]:
-            onset_sec, duration_sec, ann_char = a
-            ann_str = "".join(ann_char)
-            label = ann2label[ann_str[2:-1]]
-            if label != UNKNOWN:
-                if duration_sec % EPOCH_SEC_SIZE != 0:
-                    raise Exception("Something wrong")
-                duration_epoch = int(duration_sec / EPOCH_SEC_SIZE)
-                label_epoch = np.ones(duration_epoch, dtype=int) * label
-                labels.append(label_epoch)
-                idx = int(onset_sec * sampling_rate) + np.arange(duration_sec * sampling_rate, dtype=int)
-                label_idx.append(idx)
-
-                print("Include onset:{}, duration:{}, label:{} ({})".format(
-                    onset_sec, duration_sec, label, ann_str
-                ))
-            else:
-                idx = int(onset_sec * sampling_rate) + np.arange(duration_sec * sampling_rate, dtype=int)
-                remove_idx.append(idx)
-
-                print("Remove onset:{}, duration:{}, label:{} ({})".format(
-                    onset_sec, duration_sec, label, ann_str))
-        labels = np.hstack(labels)
-        
-        print("before remove unwanted: {}".format(np.arange(len(raw_ch_df)).shape))
-        if len(remove_idx) > 0:
-            remove_idx = np.hstack(remove_idx)
-            select_idx = np.setdiff1d(np.arange(len(raw_ch_df)), remove_idx)
-        else:
-            select_idx = np.arange(len(raw_ch_df))
-        print("after remove unwanted: {}".format(select_idx.shape))
-
-        # Select only the data with labels
-        print("before intersect label: {}".format(select_idx.shape))
-        label_idx = np.hstack(label_idx)
-        select_idx = np.intersect1d(select_idx, label_idx)
-        print("after intersect label: {}".format(select_idx.shape))
-
-        # Remove extra index
-        if len(label_idx) > len(select_idx):
-            print("before remove extra labels: {}, {}".format(select_idx.shape, labels.shape))
-            extra_idx = np.setdiff1d(label_idx, select_idx)
-            # Trim the tail
-            if np.all(extra_idx > select_idx[-1]):
-                n_label_trims = int(math.ceil(len(extra_idx) / (EPOCH_SEC_SIZE * sampling_rate)))
-                if n_label_trims != 0:
-                    labels = labels[:-n_label_trims]
-            print("after remove extra labels: {}, {}".format(select_idx.shape, labels.shape))
-
-        # Remove movement and unknown stages if any
-        raw_ch = raw_ch_df.values[select_idx]
-
-        # Verify that we can split into 30-s epochs
-        if len(raw_ch) % (EPOCH_SEC_SIZE * sampling_rate) != 0:
-            raise Exception("Something wrong")
-        n_epochs = len(raw_ch) / (EPOCH_SEC_SIZE * sampling_rate)
-
-        # Get epochs and their corresponding labels
-        x = np.asarray(np.split(raw_ch, n_epochs)).astype(np.float32)
-        y = labels.astype(np.int32)
-
-        assert len(x) == len(y)
-
-        # Select on sleep periods
-        w_edge_mins = 30
-        nw_idx = np.where(y != stage_dict["W"])[0]
-        start_idx = nw_idx[0] - (w_edge_mins * 2)
-        end_idx = nw_idx[-1] + (w_edge_mins * 2)
-        if start_idx < 0: start_idx = 0
-        if end_idx >= len(y): end_idx = len(y) - 1
-        select_idx = np.arange(start_idx, end_idx + 1)
-        print("Data before selection: {}, {}".format(x.shape, y.shape))
-        x = x[select_idx]
-        y = y[select_idx]
-        print("Data after selection: {}, {}".format(x.shape, y.shape))
-
-        # Save
-        filename = ntpath.basename(psg_fnames[i]).replace("-PSG.edf", ".npz")
-        save_dict = {
-            "x": x, 
-            "y": y, 
-            "fs": sampling_rate,
-            "ch_label": select_ch,
-            "header_raw": h_raw,
-            "header_annotation": h_ann,
-        }
-        np.savez(os.path.join(args.output_dir, filename), **save_dict)
+        # Visualize the filtered signal
+        plot_filtered_signal(filtered_data, sampling_rate, title="Filtered EEG Signal", channel_name=select_ch, duration=5)
 
         print("\n=======================================\n")
-
 
 if __name__ == "__main__":
     main()
