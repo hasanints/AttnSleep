@@ -9,10 +9,8 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 from mne.io import concatenate_raws, read_raw_edf
-from mne.preprocessing import ICA, create_eog_epochs
-from mne import Epochs, pick_types, events_from_annotations
-from mne.filter import filter_data
-
+from mne.preprocessing import ICA
+from mne import pick_types
 import dhedfreader
 
 # Label values
@@ -87,21 +85,30 @@ def main():
         raw = read_raw_edf(psg_fnames[i], preload=True, stim_channel=None)
         sampling_rate = raw.info['sfreq']
 
+        # Select only the desired channel (Fpz-Cz)
+        picks = pick_types(raw.info, eeg=True, include=[select_ch])
+
         # Ensure data is high-pass filtered before ICA
-        raw.filter(1.0, None)  # High-pass filter to 1.0 Hz
+        raw.filter(1.0, None, picks=picks)  # High-pass filter to 1.0 Hz
 
         # Step 1: Apply Common Average Reference (CAR)
         raw.set_eeg_reference('average', projection=True)
         
         # Step 2: Apply Independent Component Analysis (ICA) for artifact removal
         ica = ICA(n_components=7, random_state=97)  # Adjust n_components to 7 or fewer
-        ica.fit(raw)
-        eog_indices, eog_scores = ica.find_bads_eog(raw)
-        ica.exclude = eog_indices
+        ica.fit(raw, picks=picks)
+
+        # Check if there are any EOG channels
+        eog_ch_names = [ch for ch in raw.ch_names if 'EOG' in ch]
+        if eog_ch_names:  # Only find EOG artifacts if EOG channels are present
+            eog_indices, eog_scores = ica.find_bads_eog(raw)
+            ica.exclude = eog_indices
+
+        # Apply the ICA to the data
         raw = ica.apply(raw)
-        
-        # Step 3: Band-pass filter (0.5–40 Hz)
-        raw.filter(0.5, 40.0)
+
+        # Step 3: Band-pass filter (0.5–40 Hz) for the selected channel
+        raw.filter(0.5, 40.0, picks=picks)
         
         # Step 4: Filter into six frequency bands
         freq_bands = {
@@ -115,9 +122,9 @@ def main():
 
         filtered_data = {}
         for band, (low_freq, high_freq) in freq_bands.items():
-            filtered_data[band] = raw.copy().filter(low_freq, high_freq)
+            filtered_data[band] = raw.copy().filter(low_freq, high_freq, picks=picks)
         
-        # Process data
+        # Process data for the selected channel
         raw_ch_df = raw.to_data_frame()[[select_ch]]
         raw_ch_df.set_index(np.arange(len(raw_ch_df)))
 
