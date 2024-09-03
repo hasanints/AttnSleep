@@ -15,7 +15,6 @@ from mne.filter import filter_data
 
 import dhedfreader
 
-
 # Label values
 W = 0
 N1 = 1
@@ -87,15 +86,15 @@ def main():
         # Read raw EEG data
         raw = read_raw_edf(psg_fnames[i], preload=True, stim_channel=None)
         sampling_rate = raw.info['sfreq']
-        
-        # Apply high-pass filter before ICA (recommended)
-        raw.filter(1.0, None)
-        
+
+        # Ensure data is high-pass filtered before ICA
+        raw.filter(1.0, None)  # High-pass filter to 1.0 Hz
+
         # Step 1: Apply Common Average Reference (CAR)
         raw.set_eeg_reference('average', projection=True)
         
         # Step 2: Apply Independent Component Analysis (ICA) for artifact removal
-        ica = ICA(n_components=7, random_state=97)  # Adjusted n_components to 7
+        ica = ICA(n_components=7, random_state=97)  # Adjust n_components to 7 or fewer
         ica.fit(raw)
         eog_indices, eog_scores = ica.find_bads_eog(raw)
         ica.exclude = eog_indices
