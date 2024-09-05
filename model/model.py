@@ -222,18 +222,7 @@ class LayerNorm(nn.Module):
     def forward(self, x):
         mean = x.mean(-1, keepdim=True)
         std = x.std(-1, keepdim=True)
-        
-        # Debugging output
-        print(f"x.shape: {x.shape}, mean.shape: {mean.shape}, std.shape: {std.shape}")
-        
-        # Ensure shapes match before operation
-        if mean.shape != x.shape:
-            mean = mean.expand_as(x)
-        if std.shape != x.shape:
-            std = std.expand_as(x)
-
         return self.a_2 * (x - mean) / (std + self.eps) + self.b_2
-
 
 
 class SublayerOutput(nn.Module):
@@ -324,7 +313,7 @@ class AttnSleep(nn.Module):
         num_classes = 5
         afr_reduced_cnn_size = 30
 
-        self.mrcnn = MRCNN(afr_reduced_cnn_size) # use MRCNN_SHHS for SHHS dataset
+        self.mrcnn = MRCNN_SHHS(afr_reduced_cnn_size) # use MRCNN_SHHS for SHHS dataset
 
         attn = MultiHeadedAttention(h, d_model, afr_reduced_cnn_size)
         ff = PositionwiseFeedForward(d_model, d_ff, dropout)
