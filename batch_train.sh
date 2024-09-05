@@ -7,5 +7,5 @@ end=$((end-1))
 
 for i in $(eval echo {$start..$end})
 do
-   python train_Kfold_CV.py --fold_id=$i --device $gpu --np_data_dir $data
+   python3 train_Kfold_CV.py --fold_id=$i --device $gpu --np_data_dir $data
 done
