@@ -21,9 +21,8 @@ class Trainer(BaseTrainer):
         self.lr_scheduler = optimizer
         self.log_step = int(data_loader.batch_size) * 1  # reduce this if you want more logs
 
-        self.train_metrics = MetricTracker('loss', 'f1_score', *[m.__name__ for m in self.metric_ftns])
-        self.valid_metrics = MetricTracker('loss', 'f1_score', *[m.__name__ for m in self.metric_ftns])
-
+        self.train_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns])
+        self.valid_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns])
 
         self.fold_id = fold_id
         self.selected = 0
@@ -53,12 +52,6 @@ class Trainer(BaseTrainer):
             self.optimizer.step()
 
             self.train_metrics.update('loss', loss.item())
-            # Menghitung F1-score
-            preds = output.data.max(1, keepdim=True)[1].cpu().numpy()
-            targets = target.data.cpu().numpy()
-            f1 = f1_score(targets, preds, average='weighted')  # Menggunakan 'weighted' untuk mengatasi ketidakseimbangan kelas
-            self.train_metrics.update('f1_score', f1)
-
             for met in self.metric_ftns:
                 self.train_metrics.update(met.__name__, met(output, target))
 
@@ -113,12 +106,6 @@ class Trainer(BaseTrainer):
                     self.valid_metrics.update(met.__name__, met(output, target))
 
                 preds_ = output.data.max(1, keepdim=True)[1].cpu()
-                targets_ = target.data.cpu().numpy()
-                f1 = f1_score(targets_, preds_, average='weighted')
-                self.valid_metrics.update('f1_score', f1)
-
-                for met in self.metric_ftns:
-                    self.valid_metrics.update(met.__name__, met(output, target))
 
                 outs = np.append(outs, preds_.cpu().numpy())
                 trgs = np.append(trgs, target.data.cpu().numpy())
