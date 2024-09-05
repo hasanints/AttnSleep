@@ -44,7 +44,7 @@ def main(config, fold_id):
     # get function handles of loss and metrics
     criterion = getattr(module_loss, config['loss'])
     metrics = [getattr(module_metric, met) for met in config['metrics']]
-
+    
     # build optimizer
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
 

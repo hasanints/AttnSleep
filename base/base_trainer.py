@@ -184,6 +184,7 @@ class BaseTrainer:
         from sklearn.metrics import cohen_kappa_score
         from sklearn.metrics import confusion_matrix
         from sklearn.metrics import accuracy_score
+        from sklearn.metrics import f1_score
         import pandas as pd
         import os
         from os import walk
@@ -217,6 +218,7 @@ class BaseTrainer:
         df = pd.DataFrame(r)
         df["cohen"] = cohen_kappa_score(all_trgs, all_outs)
         df["accuracy"] = accuracy_score(all_trgs, all_outs)
+        df["f1_score"] = f1_score_score(all_trgs, all_outs)
         df = df * 100
         file_name = self.config["name"] + "_classification_report.xlsx"
         report_Save_path = os.path.join(save_dir, file_name)
