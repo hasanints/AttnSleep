@@ -210,47 +210,20 @@ class MultiHeadedAttention(nn.Module):
         return self.linear(x)
 
 
-# class LayerNorm(nn.Module):
-#     "Construct a layer normalization module."
-
-#     def __init__(self, features, eps=1e-6):
-#         super(LayerNorm, self).__init__()
-#         self.a_2 = nn.Parameter(torch.ones(features))
-#         self.b_2 = nn.Parameter(torch.zeros(features))
-#         self.eps = eps
-
-#     def forward(self, x):
-#         mean = x.mean(-1, keepdim=True)
-#         std = x.std(-1, keepdim=True)
-#         return self.a_2 * (x - mean) / (std + self.eps) + self.b_2
-    
 class LayerNorm(nn.Module):
     "Construct a layer normalization module."
 
     def __init__(self, features, eps=1e-6):
         super(LayerNorm, self).__init__()
-        # Initialize parameters to match the size of the input feature map dimensions
-        self.a_2 = nn.Parameter(torch.ones(1, 1, features))  # Adjust dimensions to (1, 1, features)
-        self.b_2 = nn.Parameter(torch.zeros(1, 1, features))  # Adjust dimensions to (1, 1, features)
+        self.a_2 = nn.Parameter(torch.ones(features))
+        self.b_2 = nn.Parameter(torch.zeros(features))
         self.eps = eps
 
     def forward(self, x):
-        # Calculate mean and standard deviation along the last dimension
         mean = x.mean(-1, keepdim=True)
         std = x.std(-1, keepdim=True)
-
-        # Ensure shapes match before performing operations
-        # a_2 and b_2 should be expanded to match the shape of x
-        a_2 = self.a_2.expand_as(x)
-        b_2 = self.b_2.expand_as(x)
-
-        # Debugging prints
-        print(f"x.shape: {x.shape}, mean.shape: {mean.shape}, std.shape: {std.shape}")
-        print(f"a_2.shape: {a_2.shape}, b_2.shape: {b_2.shape}")
-
-        return a_2 * (x - mean) / (std + self.eps) + b_2
-
-
+        return self.a_2 * (x - mean) / (std + self.eps) + self.b_2
+    
 
 
 class SublayerOutput(nn.Module):
@@ -334,7 +307,7 @@ class AttnSleep(nn.Module):
         super(AttnSleep, self).__init__()
 
         N = 2  # number of TCE clones
-        d_model = 80  # set to be 100 for SHHS dataset
+        d_model = 100  # set to be 100 for SHHS dataset
         d_ff = 120   # dimension of feed forward
         h = 5  # number of attention heads
         dropout = 0.1
