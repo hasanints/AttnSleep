@@ -210,6 +210,20 @@ class MultiHeadedAttention(nn.Module):
         return self.linear(x)
 
 
+# class LayerNorm(nn.Module):
+#     "Construct a layer normalization module."
+
+#     def __init__(self, features, eps=1e-6):
+#         super(LayerNorm, self).__init__()
+#         self.a_2 = nn.Parameter(torch.ones(features))
+#         self.b_2 = nn.Parameter(torch.zeros(features))
+#         self.eps = eps
+
+#     def forward(self, x):
+#         mean = x.mean(-1, keepdim=True)
+#         std = x.std(-1, keepdim=True)
+#         return self.a_2 * (x - mean) / (std + self.eps) + self.b_2
+    
 class LayerNorm(nn.Module):
     "Construct a layer normalization module."
 
@@ -222,7 +236,27 @@ class LayerNorm(nn.Module):
     def forward(self, x):
         mean = x.mean(-1, keepdim=True)
         std = x.std(-1, keepdim=True)
-        return self.a_2 * (x - mean) / (std + self.eps) + self.b_2
+        
+        # Debugging output to ensure dimensions match
+        print(f"x.shape: {x.shape}, mean.shape: {mean.shape}, std.shape: {std.shape}")
+        print(f"a_2.shape: {self.a_2.shape}, b_2.shape: {self.b_2.shape}")
+
+        # Ensure shapes match before performing operations
+        mean = mean.expand_as(x)
+        std = std.expand_as(x)
+        
+        if self.a_2.shape != x.shape:
+            a_2 = self.a_2.expand_as(x)
+        else:
+            a_2 = self.a_2
+        
+        if self.b_2.shape != x.shape:
+            b_2 = self.b_2.expand_as(x)
+        else:
+            b_2 = self.b_2
+
+        return a_2 * (x - mean) / (std + self.eps) + b_2
+
 
 
 class SublayerOutput(nn.Module):
