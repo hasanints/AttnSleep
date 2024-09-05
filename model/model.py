@@ -222,7 +222,18 @@ class LayerNorm(nn.Module):
     def forward(self, x):
         mean = x.mean(-1, keepdim=True)
         std = x.std(-1, keepdim=True)
+        
+        # Debugging output
+        print(f"x.shape: {x.shape}, mean.shape: {mean.shape}, std.shape: {std.shape}")
+        
+        # Ensure shapes match before operation
+        if mean.shape != x.shape:
+            mean = mean.expand_as(x)
+        if std.shape != x.shape:
+            std = std.expand_as(x)
+
         return self.a_2 * (x - mean) / (std + self.eps) + self.b_2
+
 
 
 class SublayerOutput(nn.Module):
