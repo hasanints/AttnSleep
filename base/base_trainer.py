@@ -64,15 +64,21 @@ class BaseTrainer:
         not_improved_count = 0
         all_outs = []
         all_trgs = []
-        metrics_log = {'loss': [], 'accuracy': []}  # Tracking loss and accuracy
+        metrics_log = {'train_loss': [], 'train_accuracy': [], 'val_loss': [], 'val_accuracy': []}  # Tracking train and validation metrics
 
         for epoch in range(self.start_epoch, self.epochs + 1):
             # Call _train_epoch method defined in Trainer class (inherited)
             result, epoch_outs, epoch_trgs = self._train_epoch(epoch, self.epochs)
 
+            # Assuming _train_epoch returns both training and validation metrics
+            train_loss, train_accuracy = result.get('train_loss', 0), result.get('train_accuracy', 0)
+            val_loss, val_accuracy = result.get('val_loss', 0), result.get('val_accuracy', 0)
+
             # Track metrics
-            metrics_log['loss'].append(result.get('loss', 0))
-            metrics_log['accuracy'].append(result.get('accuracy', 0))
+            metrics_log['train_loss'].append(train_loss)
+            metrics_log['train_accuracy'].append(train_accuracy)
+            metrics_log['val_loss'].append(val_loss)
+            metrics_log['val_accuracy'].append(val_accuracy)
 
             # Save logged information into log dict
             log = {'epoch': epoch}
@@ -113,9 +119,7 @@ class BaseTrainer:
         # After training is complete, plot confusion matrix and metrics
         class_names = [str(i) for i in range(len(set(all_trgs)))]  # Example: class names as string of numbers
         self.plot_confusion_matrix(all_trgs, all_outs, class_names, save_path=self.checkpoint_dir / "confusion_matrix.png")
-        
-        # Pass metrics_log as a list of one dictionary
-        self.plot_metrics([metrics_log], save_dir=self.checkpoint_dir)
+        self.plot_metrics(metrics_log, save_dir=self.checkpoint_dir)
 
         # Save final predictions and targets after training
         outs_name = "outs_" + str(self.fold_id)
@@ -125,6 +129,7 @@ class BaseTrainer:
 
         if self.fold_id == self.config["data_loader"]["args"]["num_folds"] - 1:
             self._calc_metrics()
+
 
 
     def _prepare_device(self, n_gpu_use):
@@ -163,39 +168,40 @@ class BaseTrainer:
         plt.show()  # Display the plot
         plt.close()  # Close the plot to free up memory
 
-    def plot_metrics(self, metric_dicts, save_dir='.', metric_names=None):
+    def plot_metrics(self, metrics_log, save_dir='.'):
         """
-        Plots metrics like loss, accuracy over epochs for multiple runs and saves them as image files.
+        Plots training and validation metrics like loss, accuracy over epochs and saves them as image files.
 
-        :param metric_dicts: List of dictionaries containing lists of metrics over epochs 
-                            (e.g., [{'loss': [...], 'accuracy': [...]}, {...}, ...])
+        :param metrics_log: Dictionary containing lists of metrics over epochs 
+                            (e.g., {'train_loss': [...], 'train_accuracy': [...], 'val_loss': [...], 'val_accuracy': [...]})
         :param save_dir: Directory to save the metric plots (optional, defaults to current directory)
-        :param metric_names: List of metric names to plot (optional, defaults to keys from metric_dict)
         """
-        if not metric_names:
-            # Assume all dicts have the same keys if metric_names is not provided
-            metric_names = list(metric_dicts[0].keys())
+        # Define pairs of metrics to plot
+        metric_pairs = [('train_loss', 'val_loss'), ('train_accuracy', 'val_accuracy')]
 
-        for metric_name in metric_names:
+        for train_metric, val_metric in metric_pairs:
             plt.figure(figsize=(10, 6))
-            
-            # Plot each metric from each dictionary
-            for i, metric_dict in enumerate(metric_dicts):
-                values = metric_dict[metric_name]
-                plt.plot(range(1, len(values) + 1), values, marker='o', label=f'Run {i+1} - {metric_name.capitalize()}')
-            
-            plt.title(f'Comparative {metric_name.capitalize()} over Epochs')
+
+            # Plot training metric
+            plt.plot(range(1, len(metrics_log[train_metric]) + 1), metrics_log[train_metric], marker='o', label=f'Training {train_metric.split("_")[1].capitalize()}')
+
+            # Plot validation metric
+            plt.plot(range(1, len(metrics_log[val_metric]) + 1), metrics_log[val_metric], marker='o', label=f'Validation {val_metric.split("_")[1].capitalize()}')
+
+            # Set plot title and labels
+            plt.title(f'Comparison of {train_metric.split("_")[1].capitalize()} over Epochs')
             plt.xlabel('Epoch')
-            plt.ylabel(metric_name.capitalize())
+            plt.ylabel(train_metric.split("_")[1].capitalize())
             plt.legend()
-            
+
             # Save plot to file if save_dir is provided
-            save_path = f"{save_dir}/{metric_name}_comparative_over_epochs.png"
+            save_path = f"{save_dir}/{train_metric.split('_')[1]}_comparison_over_epochs.png"
             plt.savefig(save_path)
-            self.logger.info(f"Saved comparative {metric_name} plot to {save_path}.")
-            
+            self.logger.info(f"Saved comparison plot for {train_metric.split('_')[1]} to {save_path}.")
+
             plt.show()  # Display the plot
             plt.close()  # Close the plot to free up memory
+
 
 
     def _save_checkpoint(self, epoch, save_best=True):
