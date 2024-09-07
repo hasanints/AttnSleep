@@ -66,6 +66,7 @@ class BaseTrainer:
         metrics_log = {'loss': [], 'accuracy': []}  # Tracking loss and accuracy
 
         for epoch in range(self.start_epoch, self.epochs + 1):
+            # Call _train_epoch method defined in Trainer class (inherited)
             result, epoch_outs, epoch_trgs = self._train_epoch(epoch, self.epochs)
 
             # Track metrics
@@ -107,6 +108,11 @@ class BaseTrainer:
 
             if epoch % self.save_period == 0:
                 self._save_checkpoint(epoch, save_best=best)
+
+        # After training is complete, plot confusion matrix and metrics
+        class_names = [str(i) for i in range(len(set(all_trgs)))]  # Example: class names as string of numbers
+        self.plot_confusion_matrix(all_trgs, all_outs, class_names)
+        self.plot_metrics(metrics_log)
 
         # Save final predictions and targets after training
         outs_name = "outs_" + str(self.fold_id)
