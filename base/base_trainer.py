@@ -2,6 +2,9 @@ import torch
 from abc import abstractmethod
 from numpy import inf
 import numpy as np
+import matplotlib.pyplot as plt  # For visualizations
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay  # For confusion matrix visualization
+import seaborn as sns  # For enhanced visualization (heatmaps)
 
 class BaseTrainer:
     """
@@ -11,7 +14,7 @@ class BaseTrainer:
         self.config = config
         self.logger = config.get_logger('trainer', config['trainer']['verbosity'])
 
-        # setup GPU device if available, move model into configured device
+        # Setup GPU device if available, move model into configured device
         self.device, device_ids = self._prepare_device(config['n_gpu'])
         self.model = model.to(self.device)
         if len(device_ids) > 1:
@@ -27,7 +30,7 @@ class BaseTrainer:
         self.monitor = cfg_trainer.get('monitor', 'off')
         self.fold_id = fold_id
 
-        # configuration to monitor model performance and save best
+        # Configuration to monitor model performance and save best
         if self.monitor == 'off':
             self.mnt_mode = 'off'
             self.mnt_best = 0
@@ -39,7 +42,6 @@ class BaseTrainer:
             self.early_stop = cfg_trainer.get('early_stop', inf)
 
         self.start_epoch = 1
-
         self.checkpoint_dir = config.save_dir
 
         if config.resume is not None:
@@ -61,29 +63,34 @@ class BaseTrainer:
         not_improved_count = 0
         all_outs = []
         all_trgs = []
+        metrics_log = {'loss': [], 'accuracy': []}  # Tracking loss and accuracy
 
         for epoch in range(self.start_epoch, self.epochs + 1):
             result, epoch_outs, epoch_trgs = self._train_epoch(epoch, self.epochs)
 
-            # save logged informations into log dict
+            # Track metrics
+            metrics_log['loss'].append(result.get('loss', 0))
+            metrics_log['accuracy'].append(result.get('accuracy', 0))
+
+            # Save logged information into log dict
             log = {'epoch': epoch}
             log.update(result)
             all_outs.extend(epoch_outs)
             all_trgs.extend(epoch_trgs)
-            # print logged informations to the screen
+
+            # Print logged information to the screen
             for key, value in log.items():
                 self.logger.info('    {:15s}: {}'.format(str(key), value))
 
-            # evaluate model performance according to configured metric, save best checkpoint as model_best
-            best = False #True
+            # Evaluate model performance according to configured metric, save best checkpoint as model_best
+            best = False
             if self.mnt_mode != 'off':
                 try:
-                    # check whether model performance improved or not, according to specified metric(mnt_metric)
+                    # Check whether model performance improved or not, according to specified metric (mnt_metric)
                     improved = (self.mnt_mode == 'min' and log[self.mnt_metric] <= self.mnt_best) or \
                                (self.mnt_mode == 'max' and log[self.mnt_metric] >= self.mnt_best)
                 except KeyError:
-                    self.logger.warning("Warning: Metric '{}' is not found. "
-                                        "Model performance monitoring is disabled.".format(self.mnt_metric))
+                    self.logger.warning(f"Metric '{self.mnt_metric}' is not found. Model performance monitoring is disabled.")
                     self.mnt_mode = 'off'
                     improved = False
 
@@ -94,14 +101,14 @@ class BaseTrainer:
                 else:
                     not_improved_count += 1
 
-                if not_improved_count > self.early_stop:
-                    self.logger.info("Validation performance didn\'t improve for {} epochs. "
-                                     "Training stops.".format(self.early_stop))
-                    break
+            if not_improved_count > self.early_stop:
+                self.logger.info("Validation performance didn’t improve for {} epochs. Training stops.".format(self.early_stop))
+                break
 
             if epoch % self.save_period == 0:
                 self._save_checkpoint(epoch, save_best=best)
 
+        # Save final predictions and targets after training
         outs_name = "outs_" + str(self.fold_id)
         trgs_name = "trgs_" + str(self.fold_id)
         np.save(self.config._save_dir / outs_name, all_outs)
@@ -112,20 +119,42 @@ class BaseTrainer:
 
     def _prepare_device(self, n_gpu_use):
         """
-        setup GPU device if available, move model into configured device
+        Setup GPU device if available, move model into configured device
         """
         n_gpu = torch.cuda.device_count()
         if n_gpu_use > 0 and n_gpu == 0:
-            self.logger.warning("Warning: There\'s no GPU available on this machine,"
-                                "training will be performed on CPU.")
+            self.logger.warning("Warning: There's no GPU available on this machine, training will be performed on CPU.")
             n_gpu_use = 0
         if n_gpu_use > n_gpu:
-            self.logger.warning("Warning: The number of GPU\'s configured to use is {}, but only {} are available "
-                                "on this machine.".format(n_gpu_use, n_gpu))
+            self.logger.warning(f"Warning: The number of GPUs configured to use is {n_gpu_use}, but only {n_gpu} are available on this machine.")
             n_gpu_use = n_gpu
         device = torch.device('cuda:0' if n_gpu_use > 0 else 'cpu')
         list_ids = list(range(n_gpu_use))
         return device, list_ids
+
+    def plot_confusion_matrix(self, y_true, y_pred, class_names):
+        """
+        Plot the confusion matrix.
+        """
+        cm = confusion_matrix(y_true, y_pred)
+        disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
+        disp.plot(cmap=plt.cm.Blues)
+        plt.title('Confusion Matrix')
+        plt.show()
+
+    def plot_metrics(self, metric_dict):
+        """
+        Plots metrics like loss, accuracy over epochs.
+        :param metric_dict: Dictionary containing lists of metrics over epochs (e.g., {'loss': [...], 'accuracy': [...]})
+        """
+        for metric_name, values in metric_dict.items():
+            plt.figure()
+            plt.plot(range(1, len(values) + 1), values, marker='o', label=f'Training {metric_name}')
+            plt.title(f'{metric_name.capitalize()} over Epochs')
+            plt.xlabel('Epoch')
+            plt.ylabel(metric_name.capitalize())
+            plt.legend()
+            plt.show()
 
     def _save_checkpoint(self, epoch, save_best=True):
         """
