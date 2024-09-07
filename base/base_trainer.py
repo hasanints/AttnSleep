@@ -49,14 +49,6 @@ class BaseTrainer:
             self._resume_checkpoint(config.resume)
 
     @abstractmethod
-    def _train_epoch(self, epoch, total_epochs):
-        """
-        Training logic for an epoch
-
-        :param epoch: Current epoch number
-        """
-        raise NotImplementedError
-
     def train(self):
         """
         Full training logic
@@ -70,8 +62,8 @@ class BaseTrainer:
             # Call _train_epoch method defined in Trainer class (inherited)
             result, epoch_outs, epoch_trgs = self._train_epoch(epoch, self.epochs)
 
-            # Assuming _train_epoch returns both training and validation metrics
-            train_loss, train_accuracy = result.get('train_loss', 0), result.get('train_accuracy', 0)
+            # Extract metrics
+            train_loss, train_accuracy = result.get('loss', 0), result.get('accuracy', 0)
             val_loss, val_accuracy = result.get('val_loss', 0), result.get('val_accuracy', 0)
 
             # Track metrics
@@ -80,6 +72,7 @@ class BaseTrainer:
             metrics_log['val_loss'].append(val_loss)
             metrics_log['val_accuracy'].append(val_accuracy)
 
+        
             # Save logged information into log dict
             log = {'epoch': epoch}
             log.update(result)
