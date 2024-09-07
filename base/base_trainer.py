@@ -90,7 +90,7 @@ class BaseTrainer:
                 try:
                     # Check whether model performance improved or not, according to specified metric (mnt_metric)
                     improved = (self.mnt_mode == 'min' and log[self.mnt_metric] <= self.mnt_best) or \
-                               (self.mnt_mode == 'max' and log[self.mnt_metric] >= self.mnt_best)
+                            (self.mnt_mode == 'max' and log[self.mnt_metric] >= self.mnt_best)
                 except KeyError:
                     self.logger.warning(f"Metric '{self.mnt_metric}' is not found. Model performance monitoring is disabled.")
                     self.mnt_mode = 'off'
@@ -113,7 +113,9 @@ class BaseTrainer:
         # After training is complete, plot confusion matrix and metrics
         class_names = [str(i) for i in range(len(set(all_trgs)))]  # Example: class names as string of numbers
         self.plot_confusion_matrix(all_trgs, all_outs, class_names, save_path=self.checkpoint_dir / "confusion_matrix.png")
-        self.plot_metrics(metrics_log, save_dir=self.checkpoint_dir)
+        
+        # Pass metrics_log as a list of one dictionary
+        self.plot_metrics([metrics_log], save_dir=self.checkpoint_dir)
 
         # Save final predictions and targets after training
         outs_name = "outs_" + str(self.fold_id)
@@ -123,6 +125,7 @@ class BaseTrainer:
 
         if self.fold_id == self.config["data_loader"]["args"]["num_folds"] - 1:
             self._calc_metrics()
+
 
     def _prepare_device(self, n_gpu_use):
         """
