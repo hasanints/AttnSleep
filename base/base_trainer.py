@@ -160,28 +160,40 @@ class BaseTrainer:
         plt.show()  # Display the plot
         plt.close()  # Close the plot to free up memory
 
-    def plot_metrics(self, metric_dict, save_dir='.'):
+    def plot_metrics(self, metric_dicts, save_dir='.', metric_names=None):
         """
-        Plots metrics like loss, accuracy over epochs and saves them as image files.
+        Plots metrics like loss, accuracy over epochs for multiple runs and saves them as image files.
 
-        :param metric_dict: Dictionary containing lists of metrics over epochs (e.g., {'loss': [...], 'accuracy': [...]})
+        :param metric_dicts: List of dictionaries containing lists of metrics over epochs 
+                            (e.g., [{'loss': [...], 'accuracy': [...]}, {...}, ...])
         :param save_dir: Directory to save the metric plots (optional, defaults to current directory)
+        :param metric_names: List of metric names to plot (optional, defaults to keys from metric_dict)
         """
-        for metric_name, values in metric_dict.items():
-            plt.figure()
-            plt.plot(range(1, len(values) + 1), values, marker='o', label=f'Training {metric_name}')
-            plt.title(f'{metric_name.capitalize()} over Epochs')
+        if not metric_names:
+            # Assume all dicts have the same keys if metric_names is not provided
+            metric_names = list(metric_dicts[0].keys())
+
+        for metric_name in metric_names:
+            plt.figure(figsize=(10, 6))
+            
+            # Plot each metric from each dictionary
+            for i, metric_dict in enumerate(metric_dicts):
+                values = metric_dict[metric_name]
+                plt.plot(range(1, len(values) + 1), values, marker='o', label=f'Run {i+1} - {metric_name.capitalize()}')
+            
+            plt.title(f'Comparative {metric_name.capitalize()} over Epochs')
             plt.xlabel('Epoch')
             plt.ylabel(metric_name.capitalize())
             plt.legend()
             
             # Save plot to file if save_dir is provided
-            save_path = f"{save_dir}/{metric_name}_over_epochs.png"
+            save_path = f"{save_dir}/{metric_name}_comparative_over_epochs.png"
             plt.savefig(save_path)
-            self.logger.info(f"Saved {metric_name} plot to {save_path}.")
+            self.logger.info(f"Saved comparative {metric_name} plot to {save_path}.")
             
             plt.show()  # Display the plot
             plt.close()  # Close the plot to free up memory
+
 
     def _save_checkpoint(self, epoch, save_best=True):
         """
