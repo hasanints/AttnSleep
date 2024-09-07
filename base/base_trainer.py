@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt  # For visualizations
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay  # For confusion matrix visualization
 import seaborn as sns  # For enhanced visualization (heatmaps)
+from pathlib import Path  # To handle file paths correctly
 
 class BaseTrainer:
     """
@@ -42,7 +43,7 @@ class BaseTrainer:
             self.early_stop = cfg_trainer.get('early_stop', inf)
 
         self.start_epoch = 1
-        self.checkpoint_dir = config.save_dir
+        self.checkpoint_dir = Path(config.save_dir)  # Ensure this is a Path object
 
         if config.resume is not None:
             self._resume_checkpoint(config.resume)
@@ -111,14 +112,14 @@ class BaseTrainer:
 
         # After training is complete, plot confusion matrix and metrics
         class_names = [str(i) for i in range(len(set(all_trgs)))]  # Example: class names as string of numbers
-        self.plot_confusion_matrix(all_trgs, all_outs, class_names)
-        self.plot_metrics(metrics_log)
+        self.plot_confusion_matrix(all_trgs, all_outs, class_names, save_path=self.checkpoint_dir / "confusion_matrix.png")
+        self.plot_metrics(metrics_log, save_dir=self.checkpoint_dir)
 
         # Save final predictions and targets after training
         outs_name = "outs_" + str(self.fold_id)
         trgs_name = "trgs_" + str(self.fold_id)
-        np.save(self.config._save_dir / outs_name, all_outs)
-        np.save(self.config._save_dir / trgs_name, all_trgs)
+        np.save(self.checkpoint_dir / outs_name, all_outs)
+        np.save(self.checkpoint_dir / trgs_name, all_trgs)
 
         if self.fold_id == self.config["data_loader"]["args"]["num_folds"] - 1:
             self._calc_metrics()
@@ -138,20 +139,33 @@ class BaseTrainer:
         list_ids = list(range(n_gpu_use))
         return device, list_ids
 
-    def plot_confusion_matrix(self, y_true, y_pred, class_names):
+    def plot_confusion_matrix(self, y_true, y_pred, class_names, save_path=None):
         """
-        Plot the confusion matrix.
+        Plot the confusion matrix and save it as an image file.
+        
+        :param y_true: List of true labels
+        :param y_pred: List of predicted labels
+        :param class_names: List of class names for the confusion matrix display
+        :param save_path: Path to save the confusion matrix image (optional)
         """
         cm = confusion_matrix(y_true, y_pred)
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
         disp.plot(cmap=plt.cm.Blues)
         plt.title('Confusion Matrix')
-        plt.show()
+        
+        if save_path:  # Save plot to file if save_path is provided
+            plt.savefig(save_path)
+            self.logger.info(f"Saved confusion matrix to {save_path}.")
+        
+        plt.show()  # Display the plot
+        plt.close()  # Close the plot to free up memory
 
-    def plot_metrics(self, metric_dict):
+    def plot_metrics(self, metric_dict, save_dir='.'):
         """
-        Plots metrics like loss, accuracy over epochs.
+        Plots metrics like loss, accuracy over epochs and saves them as image files.
+
         :param metric_dict: Dictionary containing lists of metrics over epochs (e.g., {'loss': [...], 'accuracy': [...]})
+        :param save_dir: Directory to save the metric plots (optional, defaults to current directory)
         """
         for metric_name, values in metric_dict.items():
             plt.figure()
@@ -160,7 +174,14 @@ class BaseTrainer:
             plt.xlabel('Epoch')
             plt.ylabel(metric_name.capitalize())
             plt.legend()
-            plt.show()
+            
+            # Save plot to file if save_dir is provided
+            save_path = f"{save_dir}/{metric_name}_over_epochs.png"
+            plt.savefig(save_path)
+            self.logger.info(f"Saved {metric_name} plot to {save_path}.")
+            
+            plt.show()  # Display the plot
+            plt.close()  # Close the plot to free up memory
 
     def _save_checkpoint(self, epoch, save_best=True):
         """
