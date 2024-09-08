@@ -17,15 +17,19 @@ class Trainer(BaseTrainer):
         super().__init__(model, criterion, metric_ftns, optimizer, config, fold_id)
         self.config = config
         self.data_loader = data_loader
+        self.len_epoch = len(self.data_loader)  # Initialize len_epoch as the length of the data loader
+
         self.valid_data_loader = valid_data_loader
         self.do_validation = self.valid_data_loader is not None
         self.lr_scheduler = optimizer
-        self.log_step = int(data_loader.batch_size)
-        self.fold_id = fold_id
-        self.class_weights = class_weights
+        self.log_step = int(data_loader.batch_size) * 1  # reduce this if you want more logs
+
         self.train_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns])
         self.valid_metrics = MetricTracker('loss', *[m.__name__ for m in self.metric_ftns])
-        self.selected = 0  # Initialize selected metrics
+
+        self.fold_id = fold_id
+        self.selected = 0
+        self.class_weights = class_weights
 
     def _train_epoch(self, epoch, total_epochs):
         """
@@ -55,7 +59,7 @@ class Trainer(BaseTrainer):
                     loss.item(),
                 ))
 
-            if batch_idx == self.len_epoch:
+            if batch_idx == self.len_epoch:  # Use self.len_epoch here to determine when to stop
                 break
 
         train_log = self.train_metrics.result()
@@ -73,70 +77,21 @@ class Trainer(BaseTrainer):
                 overall_outs.extend(selected_d["outs"])
                 overall_trgs.extend(selected_d["trg"])
 
-            # Adjust learning rate
             if epoch == 10:
                 for g in self.lr_scheduler.param_groups:
                     g['lr'] = 0.0001
 
         return train_log, overall_outs, overall_trgs
 
-    def _valid_epoch(self, epoch):
-        """
-        Validate after training an epoch
-        """
-        self.model.eval()
-        self.valid_metrics.reset()
-        outs = np.array([])
-        trgs = np.array([])
-        
-        with torch.no_grad():
-            for batch_idx, (data, target) in enumerate(self.valid_data_loader):
-                data, target = data.to(self.device), target.to(self.device)
-                output = self.model(data)
-                loss = self.criterion(output, target, self.class_weights, self.device)
-
-                self.valid_metrics.update('loss', loss.item())
-                for met in self.metric_ftns:
-                    self.valid_metrics.update(met.__name__, met(output, target))
-
-                preds_ = output.data.max(1, keepdim=True)[1].cpu()
-                outs = np.append(outs, preds_.cpu().numpy())
-                trgs = np.append(trgs, target.data.cpu().numpy())
-
-        return self.valid_metrics.result(), outs, trgs
-
-    def calculate_and_save_metrics(self, y_true, y_pred, stage_names):
-        """
-        Calculate and save metrics including confusion matrix, accuracy per stage, and overall metrics.
-        """
-        cm = confusion_matrix(y_true, y_pred, labels=range(len(stage_names)))
-        cm_df = pd.DataFrame(cm, index=stage_names, columns=stage_names)
-        cm_df.to_csv(f'{self.config["save_dir"]}/confusion_matrix_{self.fold_id}.csv', index=True)
-
-        accuracy_per_stage = cm.diagonal() / cm.sum(axis=1)
-        accuracy_per_stage_df = pd.DataFrame({
-            'Stage': stage_names,
-            'Accuracy': accuracy_per_stage
-        })
-        accuracy_per_stage_df.to_csv(f'{self.config["save_dir"]}/accuracy_per_stage_{self.fold_id}.csv', index=False)
-
-        overall_accuracy = accuracy_score(y_true, y_pred)
-        overall_f1 = f1_score(y_true, y_pred, average='macro')
-        overall_kappa = cohen_kappa_score(y_true, y_pred)
-        overall_mgm = np.mean(np.sqrt(accuracy_per_stage))
-
-        overall_metrics_df = pd.DataFrame({
-            'Metric': ['Accuracy', 'F1 Score', 'Kappa', 'MGm'],
-            'Value': [overall_accuracy, overall_f1, overall_kappa, overall_mgm]
-        })
-        overall_metrics_df.to_csv(f'{self.config["save_dir"]}/overall_metrics_{self.fold_id}.csv', index=False)
-
     def _progress(self, batch_idx):
+        """
+        Calculate training progress.
+        """
         base = '[{}/{} ({:.0f}%)]'
         if hasattr(self.data_loader, 'n_samples'):
             current = batch_idx * self.data_loader.batch_size
             total = self.data_loader.n_samples
         else:
             current = batch_idx
-            total = self.len_epoch
+            total = self.len_epoch  # Use self.len_epoch here
         return base.format(current, total, 100.0 * current / total)
