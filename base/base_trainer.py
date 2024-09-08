@@ -3,9 +3,10 @@ from abc import abstractmethod
 from numpy import inf
 import numpy as np
 import matplotlib.pyplot as plt  # For visualizations
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay  # For confusion matrix visualization
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay, accuracy_score, f1_score, cohen_kappa_score
 import seaborn as sns  # For enhanced visualization (heatmaps)
 from pathlib import Path  # To handle file paths correctly
+import pandas as pd
 
 class BaseTrainer:
     """
@@ -56,7 +57,7 @@ class BaseTrainer:
         not_improved_count = 0
         all_outs = []
         all_trgs = []
-        metrics_log = {'train_loss': [], 'train_accuracy': [], 'val_loss': [], 'val_accuracy': []}  # Tracking train and validation metrics
+        metrics_log = {'train_loss': [], 'train_accuracy': [], 'val_loss': [], 'val_accuracy': []}
 
         for epoch in range(self.start_epoch, self.epochs + 1):
             # Call _train_epoch method defined in Trainer class (inherited)
@@ -72,7 +73,6 @@ class BaseTrainer:
             metrics_log['val_loss'].append(val_loss)
             metrics_log['val_accuracy'].append(val_accuracy)
 
-        
             # Save logged information into log dict
             log = {'epoch': epoch}
             log.update(result)
@@ -89,7 +89,7 @@ class BaseTrainer:
                 try:
                     # Check whether model performance improved or not, according to specified metric (mnt_metric)
                     improved = (self.mnt_mode == 'min' and log[self.mnt_metric] <= self.mnt_best) or \
-                            (self.mnt_mode == 'max' and log[self.mnt_metric] >= self.mnt_best)
+                               (self.mnt_mode == 'max' and log[self.mnt_metric] >= self.mnt_best)
                 except KeyError:
                     self.logger.warning(f"Metric '{self.mnt_metric}' is not found. Model performance monitoring is disabled.")
                     self.mnt_mode = 'off'
@@ -110,7 +110,7 @@ class BaseTrainer:
                 self._save_checkpoint(epoch, save_best=best)
 
         # After training is complete, plot confusion matrix and metrics
-        class_names = [str(i) for i in range(len(set(all_trgs)))]  # Example: class names as string of numbers
+        class_names = [str(i) for i in range(len(set(all_trgs)))]
         self.plot_confusion_matrix(all_trgs, all_outs, class_names, save_path=self.checkpoint_dir / "confusion_matrix.png")
         self.plot_metrics(metrics_log, save_dir=self.checkpoint_dir)
 
@@ -122,8 +122,6 @@ class BaseTrainer:
 
         if self.fold_id == self.config["data_loader"]["args"]["num_folds"] - 1:
             self._calc_metrics()
-
-
 
     def _prepare_device(self, n_gpu_use):
         """
@@ -143,67 +141,42 @@ class BaseTrainer:
     def plot_confusion_matrix(self, y_true, y_pred, class_names, save_path=None):
         """
         Plot the confusion matrix and save it as an image file.
-        
-        :param y_true: List of true labels
-        :param y_pred: List of predicted labels
-        :param class_names: List of class names for the confusion matrix display
-        :param save_path: Path to save the confusion matrix image (optional)
         """
         cm = confusion_matrix(y_true, y_pred)
         disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=class_names)
         disp.plot(cmap=plt.cm.Blues)
         plt.title('Confusion Matrix')
-        
-        if save_path:  # Save plot to file if save_path is provided
+
+        if save_path:
             plt.savefig(save_path)
             self.logger.info(f"Saved confusion matrix to {save_path}.")
-        
-        plt.show()  # Display the plot
-        plt.close()  # Close the plot to free up memory
+
+        plt.show()
+        plt.close()
 
     def plot_metrics(self, metrics_log, save_dir='.'):
         """
         Plots training and validation metrics like loss, accuracy over epochs and saves them as image files.
-
-        :param metrics_log: Dictionary containing lists of metrics over epochs 
-                            (e.g., {'train_loss': [...], 'train_accuracy': [...], 'val_loss': [...], 'val_accuracy': [...]})
-        :param save_dir: Directory to save the metric plots (optional, defaults to current directory)
         """
-        # Define pairs of metrics to plot
         metric_pairs = [('train_loss', 'val_loss'), ('train_accuracy', 'val_accuracy')]
 
         for train_metric, val_metric in metric_pairs:
             plt.figure(figsize=(10, 6))
-
-            # Plot training metric
             plt.plot(range(1, len(metrics_log[train_metric]) + 1), metrics_log[train_metric], marker='o', label=f'Training {train_metric.split("_")[1].capitalize()}')
-
-            # Plot validation metric
             plt.plot(range(1, len(metrics_log[val_metric]) + 1), metrics_log[val_metric], marker='o', label=f'Validation {val_metric.split("_")[1].capitalize()}')
-
-            # Set plot title and labels
             plt.title(f'Comparison of {train_metric.split("_")[1].capitalize()} over Epochs')
             plt.xlabel('Epoch')
             plt.ylabel(train_metric.split("_")[1].capitalize())
             plt.legend()
-
-            # Save plot to file if save_dir is provided
             save_path = f"{save_dir}/{train_metric.split('_')[1]}_comparison_over_epochs.png"
             plt.savefig(save_path)
             self.logger.info(f"Saved comparison plot for {train_metric.split('_')[1]} to {save_path}.")
-
-            plt.show()  # Display the plot
-            plt.close()  # Close the plot to free up memory
-
-
+            plt.show()
+            plt.close()
 
     def _save_checkpoint(self, epoch, save_best=True):
         """
         Saving checkpoints
-
-        :param epoch: current epoch number
-        :param log: logging information of the epoch
-        :param save_best: if True, rename the saved checkpoint to 'model_best.pth'
         """
         arch = type(self.model).__name__
         state = {
@@ -234,13 +207,13 @@ class BaseTrainer:
         self.start_epoch = checkpoint['epoch'] + 1
         self.mnt_best = checkpoint['monitor_best']
 
-        # load architecture params from checkpoint.
+        # Load architecture params from checkpoint.
         if checkpoint['config']['arch'] != self.config['arch']:
             self.logger.warning("Warning: Architecture configuration given in config file is different from that of "
                                 "checkpoint. This may yield an exception while state_dict is being loaded.")
         self.model.load_state_dict(checkpoint['state_dict'])
 
-        # load optimizer state from checkpoint only when optimizer type is not changed.
+        # Load optimizer state from checkpoint only when optimizer type is not changed.
         if checkpoint['config']['optimizer']['type'] != self.config['optimizer']['type']:
             self.logger.warning("Warning: Optimizer type given in config file is different from that of checkpoint. "
                                 "Optimizer parameters not being resumed.")
@@ -250,6 +223,9 @@ class BaseTrainer:
         self.logger.info("Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch))
 
     def _calc_metrics(self):
+        """
+        Calculate and save overall metrics like classification report and confusion matrix for all folds.
+        """
         from sklearn.metrics import classification_report
         from sklearn.metrics import cohen_kappa_score
         from sklearn.metrics import confusion_matrix
@@ -268,11 +244,11 @@ class BaseTrainer:
         for root, dirs, files in os.walk(save_dir):
             for file in files:
                 if "outs" in file:
-                     outs_list.append(os.path.join(root, file))
+                    outs_list.append(os.path.join(root, file))
                 if "trgs" in file:
-                     trgs_list.append(os.path.join(root, file))
+                    trgs_list.append(os.path.join(root, file))
 
-        if len(outs_list)==self.config["data_loader"]["args"]["num_folds"]:
+        if len(outs_list) == self.config["data_loader"]["args"]["num_folds"]:
             for i in range(len(outs_list)):
                 outs = np.load(outs_list[i])
                 trgs = np.load(trgs_list[i])
@@ -296,14 +272,12 @@ class BaseTrainer:
         cm_Save_path = os.path.join(save_dir, cm_file_name)
         torch.save(cm, cm_Save_path)
 
-
-        # Uncomment if you want to copy some of the important files into the experiement folder
+        # Uncomment if you want to copy some of the important files into the experiment folder
         from shutil import copyfile
         copyfile("model/model.py", os.path.join(self.checkpoint_dir, "model.py"))
         copyfile("model/loss.py", os.path.join(self.checkpoint_dir, "loss.py"))
         copyfile("trainer/trainer.py", os.path.join(self.checkpoint_dir, "trainer.py"))
         copyfile("train_Kfold_CV.py", os.path.join(self.checkpoint_dir, "train_Kfold_CV.py"))
-        copyfile("config.json",  os.path.join(self.checkpoint_dir, "config.json"))
-        copyfile("data_loader/data_loaders.py",  os.path.join(self.checkpoint_dir, "data_loaders.py"))
-
+        copyfile("config.json", os.path.join(self.checkpoint_dir, "config.json"))
+        copyfile("data_loader/data_loaders.py", os.path.join(self.checkpoint_dir, "data_loaders.py"))
 
