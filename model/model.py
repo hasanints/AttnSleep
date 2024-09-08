@@ -223,7 +223,6 @@ class LayerNorm(nn.Module):
         mean = x.mean(-1, keepdim=True)
         std = x.std(-1, keepdim=True)
         return self.a_2 * (x - mean) / (std + self.eps) + self.b_2
-    
 
 
 class SublayerOutput(nn.Module):
@@ -307,7 +306,7 @@ class AttnSleep(nn.Module):
         super(AttnSleep, self).__init__()
 
         N = 2  # number of TCE clones
-        d_model = 80  # set to be 100 for SHHS dataset, 80 for sleep edf dataset
+        d_model = 80  # set to be 100 for SHHS dataset
         d_ff = 120   # dimension of feed forward
         h = 5  # number of attention heads
         dropout = 0.1

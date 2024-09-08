@@ -1,11 +1,6 @@
 import argparse
 import collections
 import numpy as np
-import torch
-import torch.nn as nn
-import pandas as pd
-from sklearn.metrics import confusion_matrix, accuracy_score, f1_score, cohen_kappa_score
-import os
 
 from data_loader.data_loaders import *
 import model.loss as module_loss
@@ -15,70 +10,50 @@ from parse_config import ConfigParser
 from trainer import Trainer
 from utils.util import *
 
-# Fix random seeds for reproducibility
+import torch
+import torch.nn as nn
+
+# fix random seeds for reproducibility
 SEED = 123
 torch.manual_seed(SEED)
 torch.backends.cudnn.deterministic = False
 torch.backends.cudnn.benchmark = False
 np.random.seed(SEED)
 
-def convert_files_and_save_metrics(save_dir):
-    """
-    Convert .npy, .log, and .json files to CSV/Excel.
-    """
-    for root, _, files in os.walk(save_dir):
-        for file in files:
-            file_path = os.path.join(root, file)
-            if file.endswith('.npy'):
-                convert_npy_to_csv_excel_safe(file_path)
-            elif file.endswith('.log'):
-                convert_log_to_csv_excel_safe(file_path)
-            elif file.endswith('.json'):
-                convert_json_to_csv_excel_safe(file_path)
-
-def calculate_and_save_metrics_for_cv(trainer, y_true, y_pred, stage_names):
-    """
-    Calculate and save metrics for cross-validation.
-    """
-    trainer.save_confusion_matrix(y_true, y_pred, stage_names, f'{trainer.config["save_dir"]}/confusion_matrix_{trainer.fold_id}.csv')
-    trainer.save_metrics(y_true, y_pred, stage_names, f'{trainer.config["save_dir"]}/metrics_{trainer.fold_id}')
 
 def weights_init_normal(m):
-    """
-    Initialize weights of the model with normal distribution.
-    """
-    if isinstance(m, nn.Conv2d) or isinstance(m, nn.Conv1d):
+    if type(m) == nn.Conv2d:
         torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
-    elif isinstance(m, nn.BatchNorm1d):
+    elif type(m) == nn.Conv1d:
+        torch.nn.init.normal_(m.weight.data, 0.0, 0.02)
+    elif type(m) == nn.BatchNorm1d:
         torch.nn.init.normal_(m.weight.data, 1.0, 0.02)
         torch.nn.init.constant_(m.bias.data, 0.0)
 
+
 def main(config, fold_id):
-    """
-    Main training function for a given fold.
-    """
     batch_size = config["data_loader"]["args"]["batch_size"]
+
     logger = config.get_logger('train')
 
-    # Build model architecture, initialize weights, then print to console
+    # build model architecture, initialize weights, then print to console
     model = config.init_obj('arch', module_arch)
     model.apply(weights_init_normal)
     logger.info(model)
 
-    # Get function handles of loss and metrics
+    # get function handles of loss and metrics
     criterion = getattr(module_loss, config['loss'])
     metrics = [getattr(module_metric, met) for met in config['metrics']]
 
-    # Build optimizer
+    # build optimizer
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
+
     optimizer = config.init_obj('optimizer', torch.optim, trainable_params)
 
-    # Prepare data loaders
     data_loader, valid_data_loader, data_count = data_generator_np(folds_data[fold_id][0],
                                                                    folds_data[fold_id][1], batch_size)
     weights_for_each_class = calc_class_weight(data_count)
 
-    # Initialize Trainer
     trainer = Trainer(model, criterion, metrics, optimizer,
                       config=config,
                       data_loader=data_loader,
@@ -88,8 +63,8 @@ def main(config, fold_id):
 
     trainer.train()
 
+
 if __name__ == '__main__':
-    # Argument parser for command-line options
     args = argparse.ArgumentParser(description='PyTorch Template')
     args.add_argument('-c', '--config', default="config.json", type=str,
                       help='config file path (default: None)')
@@ -102,18 +77,17 @@ if __name__ == '__main__':
     args.add_argument('-da', '--np_data_dir', type=str,
                       help='Directory containing numpy files')
 
+
     CustomArgs = collections.namedtuple('CustomArgs', 'flags type target')
     options = []
 
     args2 = args.parse_args()
     fold_id = int(args2.fold_id)
 
-    # Load configuration and folds data
     config = ConfigParser.from_args(args, fold_id, options)
     if "shhs" in args2.np_data_dir:
         folds_data = load_folds_data_shhs(args2.np_data_dir, config["data_loader"]["args"]["num_folds"])
     else:
         folds_data = load_folds_data(args2.np_data_dir, config["data_loader"]["args"]["num_folds"])
 
-    # Run the main training function
     main(config, fold_id)
