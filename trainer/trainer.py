@@ -95,3 +95,32 @@ class Trainer(BaseTrainer):
             current = batch_idx
             total = self.len_epoch  # Use self.len_epoch here
         return base.format(current, total, 100.0 * current / total)
+    
+    def _valid_epoch(self, epoch):
+        """
+        Validate after training an epoch
+
+        :param epoch: Integer, current training epoch.
+        :return: A log that contains information about validation
+        """
+        self.model.eval()
+        self.valid_metrics.reset()
+        outs = np.array([])
+        trgs = np.array([])
+        
+        with torch.no_grad():
+            for batch_idx, (data, target) in enumerate(self.valid_data_loader):
+                data, target = data.to(self.device), target.to(self.device)
+                output = self.model(data)
+                loss = self.criterion(output, target, self.class_weights, self.device)
+
+                self.valid_metrics.update('loss', loss.item())
+                for met in self.metric_ftns:
+                    self.valid_metrics.update(met.__name__, met(output, target))
+
+                preds_ = output.data.max(1, keepdim=True)[1].cpu()
+                outs = np.append(outs, preds_.cpu().numpy())
+                trgs = np.append(trgs, target.data.cpu().numpy())
+
+        return self.valid_metrics.result(), outs, trgs
+
