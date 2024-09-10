@@ -204,13 +204,44 @@ class BaseTrainer:
 
         if len(outs_list) == self.config["data_loader"]["args"]["num_folds"]:
             for i in range(len(outs_list)):
-                outs = np.load(outs_list[i])
-                trgs = np.load(trgs_list[i])
-                all_outs.extend(outs)
-                all_trgs.extend(trgs)
+                try:
+                    # Muat data dari file .npy
+                    outs = np.load(outs_list[i])
+                    trgs = np.load(trgs_list[i])
+                    
+                    # Validasi untuk memastikan data tidak kosong dan tipe data sesuai
+                    if outs.size == 0 or trgs.size == 0:
+                        self.logger.warning(f"Warning: Empty data found in file {outs_list[i]} or {trgs_list[i]}. Skipping this file.")
+                        continue  # Lewati file jika data kosong
+                    
+                    if outs.shape != trgs.shape:
+                        self.logger.warning(f"Warning: Mismatched shapes between outs ({outs.shape}) and trgs ({trgs.shape}) in file {outs_list[i]} or {trgs_list[i]}. Skipping this file.")
+                        continue  # Lewati file jika bentuknya tidak cocok
+                    
+                    # Periksa apakah semua elemen di `outs` dan `trgs` adalah angka yang valid
+                    if not np.issubdtype(outs.dtype, np.integer) or not np.issubdtype(trgs.dtype, np.integer):
+                        self.logger.warning(f"Warning: Non-integer data types found in file {outs_list[i]} or {trgs_list[i]}. Skipping this file.")
+                        continue  # Lewati file jika tipe data tidak sesuai
 
+                    # Jika valid, tambahkan data ke list all_outs dan all_trgs
+                    all_outs.extend(outs)
+                    all_trgs.extend(trgs)
+                
+                except Exception as e:
+                    self.logger.error(f"Error loading or processing file {outs_list[i]} or {trgs_list[i]}: {e}")
+                    continue  # Lewati file jika terjadi kesalahan
+
+        # Konversi list menjadi numpy array setelah semua file diproses
         all_trgs = np.array(all_trgs).astype(int)
         all_outs = np.array(all_outs).astype(int)
+
+        # Validasi akhir apakah data ada di all_trgs dan all_outs
+        if len(all_trgs) == 0 or len(all_outs) == 0:
+            self.logger.warning("Warning: No valid data found in all_outs or all_trgs. Skipping metric calculation.")
+        else:
+            # Lakukan perhitungan metrik jika data valid
+            self._calc_metrics()
+
 
         # Validasi data sebelum menghitung metrik
         if len(all_outs) == 0 or len(all_trgs) == 0:
@@ -235,6 +266,12 @@ class BaseTrainer:
         cm_file_name = self.config["name"] + "_confusion_matrix.torch"
         cm_Save_path = os.path.join(save_dir, cm_file_name)
         torch.save(cm, cm_Save_path)
+
+        for i in range(len(outs_list)):
+            outs = np.load(outs_list[i])
+            trgs = np.load(trgs_list[i])
+            print(f"File: {outs_list[i]}, Shape: {outs.shape}, First Elements: {outs[:5]}")
+            print(f"File: {trgs_list[i]}, Shape: {trgs.shape}, First Elements: {trgs[:5]}")
 
         # Uncomment if you want to copy some of the important files into the experiement folder
         # from shutil import copyfile
