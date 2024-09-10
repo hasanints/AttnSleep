@@ -10,7 +10,7 @@
     "data_loader": {
         "args":{
             "batch_size": 128,
-            "num_folds": 20
+            "num_folds": 5
         }
     },
     "optimizer": {
