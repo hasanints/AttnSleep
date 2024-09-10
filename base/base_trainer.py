@@ -179,14 +179,13 @@ class BaseTrainer:
 
         self.logger.info("Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch))
 
-    def _calc_metrics(self):
+        def _calc_metrics(self):
         from sklearn.metrics import classification_report
         from sklearn.metrics import cohen_kappa_score
         from sklearn.metrics import confusion_matrix
         from sklearn.metrics import accuracy_score
         import pandas as pd
         import os
-        from os import walk
 
         n_folds = self.config["data_loader"]["args"]["num_folds"]
         all_outs = []
@@ -238,16 +237,9 @@ class BaseTrainer:
         # Validasi akhir apakah data ada di all_trgs dan all_outs
         if len(all_trgs) == 0 or len(all_outs) == 0:
             self.logger.warning("Warning: No valid data found in all_outs or all_trgs. Skipping metric calculation.")
-        else:
-            # Lakukan perhitungan metrik jika data valid
-            self._calc_metrics()
+            return  # Tambahkan return untuk menghindari perhitungan jika data tidak valid
 
-
-        # Validasi data sebelum menghitung metrik
-        if len(all_outs) == 0 or len(all_trgs) == 0:
-            self.logger.warning("Warning: No valid data found in all_outs or all_trgs. Skipping metric calculation.")
-            return
-
+        # Jika data valid, lakukan perhitungan metrik
         # Periksa distribusi data
         print("Unique values in all_outs with counts:", np.unique(all_outs, return_counts=True))
         print("Unique values in all_trgs with counts:", np.unique(all_trgs, return_counts=True))
@@ -272,6 +264,7 @@ class BaseTrainer:
             trgs = np.load(trgs_list[i])
             print(f"File: {outs_list[i]}, Shape: {outs.shape}, First Elements: {outs[:5]}")
             print(f"File: {trgs_list[i]}, Shape: {trgs.shape}, First Elements: {trgs[:5]}")
+
 
         # Uncomment if you want to copy some of the important files into the experiement folder
         # from shutil import copyfile
