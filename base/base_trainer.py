@@ -198,11 +198,11 @@ class BaseTrainer:
         for root, dirs, files in os.walk(save_dir):
             for file in files:
                 if "outs" in file:
-                     outs_list.append(os.path.join(root, file))
+                    outs_list.append(os.path.join(root, file))
                 if "trgs" in file:
-                     trgs_list.append(os.path.join(root, file))
+                    trgs_list.append(os.path.join(root, file))
 
-        if len(outs_list)==self.config["data_loader"]["args"]["num_folds"]:
+        if len(outs_list) == self.config["data_loader"]["args"]["num_folds"]:
             for i in range(len(outs_list)):
                 outs = np.load(outs_list[i])
                 trgs = np.load(trgs_list[i])
@@ -212,7 +212,17 @@ class BaseTrainer:
         all_trgs = np.array(all_trgs).astype(int)
         all_outs = np.array(all_outs).astype(int)
 
-        r = classification_report(all_trgs, all_outs, digits=6, output_dict=True)
+        # Validasi data sebelum menghitung metrik
+        if len(all_outs) == 0 or len(all_trgs) == 0:
+            self.logger.warning("Warning: No valid data found in all_outs or all_trgs. Skipping metric calculation.")
+            return
+
+        # Periksa distribusi data
+        print("Unique values in all_outs with counts:", np.unique(all_outs, return_counts=True))
+        print("Unique values in all_trgs with counts:", np.unique(all_trgs, return_counts=True))
+
+        # Hitung metrik dengan zero_division handling
+        r = classification_report(all_trgs, all_outs, digits=6, output_dict=True, zero_division=0)
         cm = confusion_matrix(all_trgs, all_outs)
         df = pd.DataFrame(r)
         df["cohen"] = cohen_kappa_score(all_trgs, all_outs)
@@ -225,7 +235,6 @@ class BaseTrainer:
         cm_file_name = self.config["name"] + "_confusion_matrix.torch"
         cm_Save_path = os.path.join(save_dir, cm_file_name)
         torch.save(cm, cm_Save_path)
-
 
         # Uncomment if you want to copy some of the important files into the experiement folder
         # from shutil import copyfile
