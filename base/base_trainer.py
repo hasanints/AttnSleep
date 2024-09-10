@@ -179,7 +179,7 @@ class BaseTrainer:
 
         self.logger.info("Checkpoint loaded. Resume training from epoch {}".format(self.start_epoch))
 
-        def _calc_metrics(self):
+    def _calc_metrics(self):
         from sklearn.metrics import classification_report
         from sklearn.metrics import cohen_kappa_score
         from sklearn.metrics import confusion_matrix
