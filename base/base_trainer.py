@@ -265,7 +265,6 @@ class BaseTrainer:
             print(f"File: {outs_list[i]}, Shape: {outs.shape}, First Elements: {outs[:5]}")
             print(f"File: {trgs_list[i]}, Shape: {trgs.shape}, First Elements: {trgs[:5]}")
 
-
         # Uncomment if you want to copy some of the important files into the experiement folder
         # from shutil import copyfile
         # copyfile("model/model.py", os.path.join(self.checkpoint_dir, "model.py"))
