@@ -186,6 +186,7 @@ class BaseTrainer:
         from sklearn.metrics import accuracy_score
         import pandas as pd
         import os
+        from os import walk
 
         n_folds = self.config["data_loader"]["args"]["num_folds"]
         all_outs = []
@@ -197,55 +198,21 @@ class BaseTrainer:
         for root, dirs, files in os.walk(save_dir):
             for file in files:
                 if "outs" in file:
-                    outs_list.append(os.path.join(root, file))
+                     outs_list.append(os.path.join(root, file))
                 if "trgs" in file:
-                    trgs_list.append(os.path.join(root, file))
+                     trgs_list.append(os.path.join(root, file))
 
-        if len(outs_list) == self.config["data_loader"]["args"]["num_folds"]:
+        if len(outs_list)==self.config["data_loader"]["args"]["num_folds"]:
             for i in range(len(outs_list)):
-                try:
-                    # Muat data dari file .npy
-                    outs = np.load(outs_list[i])
-                    trgs = np.load(trgs_list[i])
-                    
-                    # Validasi untuk memastikan data tidak kosong dan tipe data sesuai
-                    if outs.size == 0 or trgs.size == 0:
-                        self.logger.warning(f"Warning: Empty data found in file {outs_list[i]} or {trgs_list[i]}. Skipping this file.")
-                        continue  # Lewati file jika data kosong
-                    
-                    if outs.shape != trgs.shape:
-                        self.logger.warning(f"Warning: Mismatched shapes between outs ({outs.shape}) and trgs ({trgs.shape}) in file {outs_list[i]} or {trgs_list[i]}. Skipping this file.")
-                        continue  # Lewati file jika bentuknya tidak cocok
-                    
-                    # Periksa apakah semua elemen di `outs` dan `trgs` adalah angka yang valid
-                    if not np.issubdtype(outs.dtype, np.integer) or not np.issubdtype(trgs.dtype, np.integer):
-                        self.logger.warning(f"Warning: Non-integer data types found in file {outs_list[i]} or {trgs_list[i]}. Skipping this file.")
-                        continue  # Lewati file jika tipe data tidak sesuai
+                outs = np.load(outs_list[i])
+                trgs = np.load(trgs_list[i])
+                all_outs.extend(outs)
+                all_trgs.extend(trgs)
 
-                    # Jika valid, tambahkan data ke list all_outs dan all_trgs
-                    all_outs.extend(outs)
-                    all_trgs.extend(trgs)
-                
-                except Exception as e:
-                    self.logger.error(f"Error loading or processing file {outs_list[i]} or {trgs_list[i]}: {e}")
-                    continue  # Lewati file jika terjadi kesalahan
-
-        # Konversi list menjadi numpy array setelah semua file diproses
         all_trgs = np.array(all_trgs).astype(int)
         all_outs = np.array(all_outs).astype(int)
 
-        # Validasi akhir apakah data ada di all_trgs dan all_outs
-        if len(all_trgs) == 0 or len(all_outs) == 0:
-            self.logger.warning("Warning: No valid data found in all_outs or all_trgs. Skipping metric calculation.")
-            return  # Tambahkan return untuk menghindari perhitungan jika data tidak valid
-
-        # Jika data valid, lakukan perhitungan metrik
-        # Periksa distribusi data
-        print("Unique values in all_outs with counts:", np.unique(all_outs, return_counts=True))
-        print("Unique values in all_trgs with counts:", np.unique(all_trgs, return_counts=True))
-
-        # Hitung metrik dengan zero_division handling
-        r = classification_report(all_trgs, all_outs, digits=6, output_dict=True, zero_division=0)
+        r = classification_report(all_trgs, all_outs, digits=6, output_dict=True)
         cm = confusion_matrix(all_trgs, all_outs)
         df = pd.DataFrame(r)
         df["cohen"] = cohen_kappa_score(all_trgs, all_outs)
@@ -259,11 +226,6 @@ class BaseTrainer:
         cm_Save_path = os.path.join(save_dir, cm_file_name)
         torch.save(cm, cm_Save_path)
 
-        for i in range(len(outs_list)):
-            outs = np.load(outs_list[i])
-            trgs = np.load(trgs_list[i])
-            print(f"File: {outs_list[i]}, Shape: {outs.shape}, First Elements: {outs[:5]}")
-            print(f"File: {trgs_list[i]}, Shape: {trgs.shape}, First Elements: {trgs[:5]}")
 
         # Uncomment if you want to copy some of the important files into the experiement folder
         # from shutil import copyfile
@@ -273,3 +235,5 @@ class BaseTrainer:
         # copyfile("train_Kfold_CV.py", os.path.join(self.checkpoint_dir, "train_Kfold_CV.py"))
         # copyfile("config.json",  os.path.join(self.checkpoint_dir, "config.json"))
         # copyfile("data_loader/data_loaders.py",  os.path.join(self.checkpoint_dir, "data_loaders.py"))
+
+
