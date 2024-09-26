@@ -21,7 +21,7 @@
             "amsgrad": true
         }
     },
-    "loss": "weighted_CrossEntropyLoss",
+    "loss": "CrossEntropyLoss",
     "metrics": [
         "accuracy",
         "f1"
