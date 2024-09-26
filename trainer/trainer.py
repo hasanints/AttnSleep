@@ -103,7 +103,11 @@ class Trainer(BaseTrainer):
             for batch_idx, (data, target) in enumerate(self.valid_data_loader):
                 data, target = data.to(self.device), target.to(self.device)
                 output = self.model(data)
-                loss = self.criterion(output, target, self.class_weights, self.device)
+                
+                if self.class_weights is None:  # Gunakan CrossEntropyLoss standar (tanpa class weights)
+                    loss = self.criterion(output, target)
+                else:  # Gunakan class weights, tapi tanpa device sebagai argumen
+                    loss = self.criterion(output, target, self.class_weights)
 
                 self.valid_metrics.update('loss', loss.item())
                 for met in self.metric_ftns:
