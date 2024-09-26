@@ -42,7 +42,15 @@ def main(config, fold_id):
     logger.info(model)
 
     # get function handles of loss and metrics
-    criterion = getattr(module_loss, config['loss'])
+    # criterion = getattr(module_loss, config['loss'])
+
+    # Use standard CrossEntropyLoss if specified in config
+    if config['loss'] == 'CrossEntropyLoss':
+        criterion = module_loss.CrossEntropyLoss
+    else:
+        # Use weighted loss
+        criterion = getattr(module_loss, config['loss'])
+
     metrics = [getattr(module_metric, met) for met in config['metrics']]
 
     # build optimizer
