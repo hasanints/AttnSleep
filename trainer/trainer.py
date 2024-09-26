@@ -46,7 +46,11 @@ class Trainer(BaseTrainer):
             self.optimizer.zero_grad()
             output = self.model(data)
 
-            loss = self.criterion(output, target, self.class_weights, self.device)
+            # Panggil CrossEntropyLoss tanpa device, dan hanya tambahkan class_weights jika diperlukan
+            if self.class_weights is None:  # Jika tidak menggunakan class_weights
+                loss = self.criterion(output, target)
+            else:  # Jika menggunakan class_weights, kirimkan class_weights tetapi jangan device
+                loss = self.criterion(output, target, self.class_weights)
 
             loss.backward()
             self.optimizer.step()
