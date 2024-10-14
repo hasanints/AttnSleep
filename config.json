@@ -28,7 +28,7 @@
     ],
     "trainer": {
         "epochs": 100,
-        "save_dir": "saved/",
+        "save_dir": "/content/drive/MyDrive/TugasAkhir/training_result", 
         "save_period": 30,
         "verbosity": 2,
         "monitor": "min val_loss"
