@@ -1,6 +1,6 @@
 {
     "name": "sleep_edf20_exp",
-    "n_gpu": 4,
+    "n_gpu": 1,
 
     "arch": {
         "type": "AttnSleep",
