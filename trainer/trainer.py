@@ -53,7 +53,7 @@ class Trainer(BaseTrainer):
                 loss = self.criterion(output, target)
             else:  # Jika menggunakan class_weights, pindahkan ke device
                 class_weights = torch.tensor(self.class_weights).to(self.device)
-                loss = self.criterion(output, target, class_weights)
+                loss = self.criterion(output, target, class_weights, self.device)
 
             loss.backward()
             self.optimizer.step()
