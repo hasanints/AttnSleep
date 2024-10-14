@@ -33,38 +33,33 @@ class Trainer(BaseTrainer):
     def _train_epoch(self, epoch, total_epochs):
         """
         Training logic for an epoch
-
-        :param epoch: Integer, current training epoch.
-            total_epochs: Integer, the total number of epoch
-        :return: A log that contains average loss and metric in this epoch.
         """
         self.model.train()
         self.train_metrics.reset()
         overall_outs = []
         overall_trgs = []
+        
         for batch_idx, (data, target) in enumerate(self.data_loader):
             data, target = data.to(self.device), target.to(self.device)
 
             self.optimizer.zero_grad()
             output = self.model(data)
 
-            # Gunakan class_weights jika ada, dan pindahkan ke device yang benar
+            # Panggil weighted_CrossEntropyLoss dengan class_weights dan device
             if self.class_weights is None:  # Jika tidak menggunakan class_weights
                 loss = self.criterion(output, target)
-            else:  # Jika menggunakan class_weights, pindahkan ke device
-                class_weights = torch.tensor(self.class_weights).to(self.device)
-                loss = self.criterion(output, target, class_weights, self.device)
+            else:  # Jika menggunakan class_weights, pastikan kelas dan device diteruskan
+                loss = self.criterion(output, target, self.class_weights, self.device)
 
             loss.backward()
             self.optimizer.step()
 
-            # Update metrik pelatihan
             self.train_metrics.update('loss', loss.item())
             for met in self.metric_ftns:
                 self.train_metrics.update(met.__name__, met(output, target))
 
             if batch_idx % self.log_step == 0:
-                self.logger.debug('Train Epoch: {} {} Loss: {:.6f} '.format(
+                self.logger.debug('Train Epoch: {} {} Loss: {:.6f}'.format(
                     epoch,
                     self._progress(batch_idx),
                     loss.item(),
@@ -75,7 +70,6 @@ class Trainer(BaseTrainer):
 
         log = self.train_metrics.result()
 
-        # Validasi setelah setiap epoch
         if self.do_validation:
             val_log, outs, trgs = self._valid_epoch(epoch)
             log.update(**{'val_' + k: v for k, v in val_log.items()})

@@ -45,10 +45,10 @@ def load_folds_data(np_data_path, n_folds):
     files_pairs = []
     for key in files_dict:
         files_pairs.append(files_dict[key])
-    files_pairs = np.array(files_pairs)
+    files_pairs = np.array(files_pairs, dtype=object)
     files_pairs = files_pairs[r_permute]
 
-    train_files = np.array_split(files_pairs, n_folds)
+    train_files = np.array_split(files_pairs, n_folds, dtype=object)
     folds_data = {}
     for fold_id in range(n_folds):
         subject_files = train_files[fold_id]

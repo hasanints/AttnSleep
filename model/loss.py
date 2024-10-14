@@ -3,10 +3,13 @@ import torch.nn as nn
 
 # Weighted CrossEntropyLoss
 def weighted_CrossEntropyLoss(output, target, classes_weights, device):
-    cr = nn.CrossEntropyLoss(weight=torch.tensor(classes_weights).to(device))
-    return cr(output, target)
+    # Pindahkan class_weights ke device (GPU atau CPU)
+    weights = torch.tensor(classes_weights).to(device)
+    criterion = nn.CrossEntropyLoss(weight=weights)
+    return criterion(output, target)
 
-# Standard CrossEntropyLoss (No Class Weights)
-def CrossEntropyLoss(output, target, device=None):
-    cr = nn.CrossEntropyLoss()  # Standard CrossEntropyLoss without weights
-    return cr(output, target)
+# Standard CrossEntropyLoss (tanpa class weights)
+def CrossEntropyLoss(output, target):
+    criterion = nn.CrossEntropyLoss()
+    return criterion(output, target)
+
