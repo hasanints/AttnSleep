@@ -35,7 +35,7 @@ class Trainer(BaseTrainer):
         Training logic for an epoch
 
         :param epoch: Integer, current training epoch.
-               total_epochs: Integer, the total number of epoch
+            total_epochs: Integer, the total number of epoch
         :return: A log that contains average loss and metric in this epoch.
         """
         self.model.train()
@@ -48,15 +48,17 @@ class Trainer(BaseTrainer):
             self.optimizer.zero_grad()
             output = self.model(data)
 
-            # Panggil CrossEntropyLoss tanpa device, dan hanya tambahkan class_weights jika diperlukan
+            # Gunakan class_weights jika ada, dan pindahkan ke device yang benar
             if self.class_weights is None:  # Jika tidak menggunakan class_weights
                 loss = self.criterion(output, target)
-            else:  # Jika menggunakan class_weights, kirimkan class_weights tetapi jangan device
-                loss = self.criterion(output, target, self.class_weights)
+            else:  # Jika menggunakan class_weights, pindahkan ke device
+                class_weights = torch.tensor(self.class_weights).to(self.device)
+                loss = self.criterion(output, target, class_weights)
 
             loss.backward()
             self.optimizer.step()
 
+            # Update metrik pelatihan
             self.train_metrics.update('loss', loss.item())
             for met in self.metric_ftns:
                 self.train_metrics.update(met.__name__, met(output, target))
@@ -70,8 +72,10 @@ class Trainer(BaseTrainer):
 
             if batch_idx == self.len_epoch:
                 break
+
         log = self.train_metrics.result()
 
+        # Validasi setelah setiap epoch
         if self.do_validation:
             val_log, outs, trgs = self._valid_epoch(epoch)
             log.update(**{'val_' + k: v for k, v in val_log.items()})
@@ -83,12 +87,13 @@ class Trainer(BaseTrainer):
                 overall_outs.extend(selected_d["outs"])
                 overall_trgs.extend(selected_d["trg"])
 
-            # THIS part is to reduce the learning rate after 10 epochs to 1e-4
+            # Kurangi learning rate setelah 10 epoch
             if epoch == 10:
                 for g in self.lr_scheduler.param_groups:
                     g['lr'] = 0.0001
 
         return log, overall_outs, overall_trgs
+
 
     # def _valid_epoch(self, epoch):
     #     """
