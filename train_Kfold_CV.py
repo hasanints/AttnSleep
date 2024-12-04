@@ -43,51 +43,25 @@ def main(config, fold_id):
 
     # get function handles of loss and metrics
     criterion = getattr(module_loss, config['loss'])
-
     metrics = [getattr(module_metric, met) for met in config['metrics']]
 
     # build optimizer
     trainable_params = filter(lambda p: p.requires_grad, model.parameters())
+
     optimizer = config.init_obj('optimizer', torch.optim, trainable_params)
 
     data_loader, valid_data_loader, data_count = data_generator_np(folds_data[fold_id][0],
                                                                    folds_data[fold_id][1], batch_size)
-    
-    # Initialize Trainer
+    weights_for_each_class = calc_class_weight(data_count)
+
     trainer = Trainer(model, criterion, metrics, optimizer,
                       config=config,
                       data_loader=data_loader,
                       fold_id=fold_id,
                       valid_data_loader=valid_data_loader,
-                      class_weights=None)
+                      class_weights=weights_for_each_class)
 
-    # Train the model
     trainer.train()
-
-    # Menggabungkan hasil dari setiap fold
-    fold_accuracies = []
-    fold_f1s = []
-    fold_kappas = []
-    fold_gmeans = []
-
-    # Lakukan untuk setiap fold
-    result, _, _ = trainer._valid_epoch(1)  # Note: You can loop over epochs if needed
-    fold_accuracies.append(result['accuracy'])
-    fold_f1s.append(result['macro_f1'])
-    fold_kappas.append(result['cohen_kappa'])
-    fold_gmeans.append(result['macro_gmean'])
-
-    # Setelah semua fold selesai, hitung rata-rata dari semua fold
-    avg_accuracy = np.mean(fold_accuracies)
-    avg_f1 = np.mean(fold_f1s)
-    avg_kappa = np.mean(fold_kappas)
-    avg_gmean = np.mean(fold_gmeans)
-
-    # Cetak atau log hasil rata-rata
-    logger.info(f"Average accuracy: {avg_accuracy}")
-    logger.info(f"Average macro F1-score: {avg_f1}")
-    logger.info(f"Average Cohen Kappa: {avg_kappa}")
-    logger.info(f"Average macro G-mean: {avg_gmean}")
 
 
 if __name__ == '__main__':
